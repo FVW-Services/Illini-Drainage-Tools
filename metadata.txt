@@ -1,0 +1,41 @@
+# This file contains metadata for your plugin. Since 
+# version 2.0 of QGIS this is the proper way to supply 
+# information about a plugin. The old method of 
+# embedding metadata in __init__.py will 
+# is no longer supported since version 2.0.
+
+# This file should be included when you package your plugin.
+# Mandatory items:
+
+[general]
+name=Illini Drainage Tools
+qgisMinimumVersion=3.0
+description=Performs Specific Draiange Related Tasks and Analysis on a Site using a LiDAR DEM data.
+version=0.1
+author=FALASY Anamelechi
+email=fvw.services@gmail.com
+
+about=Performs Specific Draiange Related Tasks and Analysis on a Site using a LiDAR DEM data.
+
+tracker=https://github.com/FVW-Services/Illini-Drainage-Tools/issues
+repository=https://github.com/FVW-Services/Illini-Drainage-Tools
+# End of mandatory metadata
+
+# Recommended items:
+
+# Uncomment the following line and add your changelog:
+# changelog=
+
+# Tags are comma separated with spaces allowed
+tags=python, LiDAR Thinning, Point Sampling, Layout Grids, Tile Network Generator, Node Generator, Network Connectivity, Elevation Endpoints
+
+homepage=https://github.com/FVW-Services/Illini-Drainage-Tools/wiki/Welcome-to-the-Illini-Drainage-Tools-wiki!
+category=Analysis
+icon=icon.png
+# experimental flag
+experimental=False
+
+# deprecated flag (applies to the whole plugin, not just a single version)
+deprecated=False
+
+
