@@ -64,7 +64,7 @@ class MultipleMainsFixAlgorithm(QgsProcessingAlgorithm):
         return MultipleMainsFixAlgorithm()
                 
     def name(self):
-        return '5. Multiple-Main Node Generator'
+        return 'e2. Multiple-Main Node Generator'
 
     def displayName(self):
         return self.tr(self.name())
@@ -84,19 +84,20 @@ class MultipleMainsFixAlgorithm(QgsProcessingAlgorithm):
         return self.tr( """This tool is used to clean up a line layer from its global properties in space. 
         
         Workflow:         
-        1. Choose a Vector Line layer of Multiple Mains 
-        2. Click to select the Field ID that represents the line segments from the displayed line layer
-        3. Choose a desired Coordinate Reference System for displaying the generated points         
-        4. Click on \"Run\"               
+        1. Select a Vector Line layer of Multiple Mains and Submains 
+        2. Select the Field ID that represents the line segments from the displayed vector line layer
+        3. Select a desired Coordinate Reference System for displaying the generated points
+        4. Save the output file (optional)        
+        5. Click on \"Run\"               
                 
         The script will give out an output. 
-        Use this output with "Routine 6" to have a topologically sound tile network. 
+        Use this output with "Routine F" to have a topologically sound tile network. 
                 
         The help link in the Graphical User Interface (GUI) provides more information about the plugin.
         """)   
         
     def helpUrl(self):
-        return "http://www.wq.illinois.edu/DG/DrainageGuide.html" 
+        return "https://publish.illinois.edu/illinoisdrainageguide/files/2022/06/PublicAccess.pdf" 
     
     
     def initAlgorithm(self, config=None):
@@ -114,7 +115,7 @@ class MultipleMainsFixAlgorithm(QgsProcessingAlgorithm):
         results = {}
         outputs = {}
                 
-        alg_params = {'INPUT': parameters['VectorLineLayer'], 'START_DISTANCE':0, 'END_DISTANCE':5,'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
+        alg_params = {'INPUT': parameters['VectorLineLayer'], 'START_DISTANCE':0, 'END_DISTANCE':7,'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
 
         # Check if vector line layer 'VectorLineLayer' is in geogrephic coordinates
         vector_layer = self.parameterAsVectorLayer(parameters, 'VectorLineLayer', context)

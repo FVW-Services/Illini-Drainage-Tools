@@ -62,7 +62,7 @@ class TileStatisticsAlgorithm(QgsProcessingAlgorithm):
         return TileStatisticsAlgorithm()
         
     def name(self):
-        return '7. End Point Elevations'
+        return 'j. End Point Elevations'
 
     def displayName(self):
         return self.tr(self.name())
@@ -79,15 +79,16 @@ class TileStatisticsAlgorithm(QgsProcessingAlgorithm):
         return icon
         
     def shortHelpString(self):
-        return self.tr( """This tool is used to calculate Tile Layout Statistics, based on a line vector layer and a DEM (Digital Elevation Model). 
+        return self.tr( """This tool is used to determine the end point elevations for each line segment in network layout). 
         It Calculates the logitudinal slope of each line segment, in percentage.
         
         Workflow: 
-        1. Choose two layers: a DEM Layer and a Network Generated Vector Line layer (e.g. Tile Network) 
-        2. Select a value for the line segment. This can be left at Default Value. 
-        3. Click on \"Run\"
+        1. Select two layers: a DEM Layer and a Network Generated Vector Line layer (e.g. Tile Network). This is a follow-up from "Routine I"
+        2. Specify a value for the line segment. This can be left at Default Value
+        3. Save the output file (optional)         
+        4. Click on \"Run\"
                 
-        Input parameters: 
+        Notes for Input parameters: 
         1 - Line Segment: It is advisable that the length of the segments in the selected vector line layer be equal or greater than 5 times the pixel size of the DEM. The value entered here determines the length of the line segments created.  
         2 - Digital Elevation Model (DEM): any elevation raster, with elevation values in same units as road network vector layer lengths. 
         3 - The Tile Lines: Select any vector line layer that is completely within the DEM data area. 
@@ -101,7 +102,7 @@ class TileStatisticsAlgorithm(QgsProcessingAlgorithm):
         """)   
         
     def helpUrl(self):
-        return "http://www.wq.illinois.edu/DG/PublicAccess.pdf"
+        return "https://publish.illinois.edu/illinoisdrainageguide/files/2022/06/PublicAccess.pdf" 
     
     
     def initAlgorithm(self, config=None):
@@ -175,7 +176,7 @@ class TileStatisticsAlgorithm(QgsProcessingAlgorithm):
 
         # Field calculator1
         alg_params = {
-            'FIELD_LENGTH': 10,
+            'FIELD_LENGTH': 11,
             'FIELD_NAME': 'True_Length',
             'FIELD_PRECISION': 2,
             'FIELD_TYPE': 0,
@@ -191,11 +192,11 @@ class TileStatisticsAlgorithm(QgsProcessingAlgorithm):
 
         # Field calculator2
         alg_params = {
-            'FIELD_LENGTH': 10,
-            'FIELD_NAME': 'Abs_Slope_%',
+            'FIELD_LENGTH': 11,
+            'FIELD_NAME': 'Abs_Slope',
             'FIELD_PRECISION': 3,
             'FIELD_TYPE': 0,
-            'FORMULA': '(abs(\"Elev_first\" - \"Elev_last\") / \"length\" ) *100',
+            'FORMULA': '(abs(\"Elev_First\" - \"Elev_Last\") / \"length\" ) *100',
             'INPUT': outputs['FieldCalculator1']['OUTPUT'],
             'OUTPUT': parameters['TileStats']
         }

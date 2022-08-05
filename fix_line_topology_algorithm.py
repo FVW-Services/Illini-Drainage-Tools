@@ -64,7 +64,7 @@ class FixLineTopologyAlgorithm(QgsProcessingAlgorithm):
         return FixLineTopologyAlgorithm()
                 
     def name(self):
-        return '6. Tile Network Connectivity'
+        return 'f. Tile Network Connectivity'
 
     def displayName(self):
         return self.tr(self.name())
@@ -84,9 +84,10 @@ class FixLineTopologyAlgorithm(QgsProcessingAlgorithm):
         return self.tr( """This tool is used to clean up a line layer to have a topological connected geometry for building tile networks. 
         
         Workflow:         
-        1. Choose a vector Line layer. This is a follow-up from either "Routine 4" or "Routine 5".
-        2. Click to select the Field ID that represents the line segments from the displayed line layer 
-        3. Click on \"Run\"               
+        1. Select a vector Line layer. This is a follow-up from either "Routine e1" or "Routine e2"
+        2. Select the Field IDs ("Vertex Part Index" and "Group Vertex part") that represents the line segments to be corrected
+        3. Save the output file (optional)        
+        4. Click on \"Run\"               
                 
         The script will give out an output. 
                 
@@ -94,7 +95,7 @@ class FixLineTopologyAlgorithm(QgsProcessingAlgorithm):
         """)   
         
     def helpUrl(self):
-        return "http://www.wq.illinois.edu/DG/DrainageGuide.html" 
+        return "https://publish.illinois.edu/illinoisdrainageguide/files/2022/06/PublicAccess.pdf" 
     
     
     def initAlgorithm(self, config=None):

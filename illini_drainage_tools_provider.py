@@ -39,6 +39,14 @@ from .multiple_mains_fix_algorithm import MultipleMainsFixAlgorithm
 from .fix_line_topology_algorithm import FixLineTopologyAlgorithm
 from .network_generator_algorithm import NetworkGeneratorAlgorithm
 from .tile_statistics_algorithm import TileStatisticsAlgorithm
+from .flow_algorithm import FlowAlgorithm
+from .ordering_algorithm import OrderingAlgorithm
+from .coordinates_algorithm import CoordinatesAlgorithm
+from .elevation_algorithm import ElevationAlgorithm
+from .benefits_algorithm import BenefitsAlgorithm
+from .readout_algorithm import ReadoutAlgorithm
+from .bury_algorithm import BuryAlgorithm
+
 
 #from .lines_terrain_profile_algorithm import LinesTerrainProfileAlgorithm
 #from .illini_drainage_tools_algorithm import IlliniDrainageToolsAlgorithm
@@ -75,13 +83,15 @@ class IlliniDrainageToolsProvider(QgsProcessingProvider):
         self.addAlgorithm(SingleMainFixAlgorithm())
         self.addAlgorithm(MultipleMainsFixAlgorithm())
         self.addAlgorithm(FixLineTopologyAlgorithm())                
-        self.addAlgorithm(NetworkGeneratorAlgorithm())
+        self.addAlgorithm(NetworkGeneratorAlgorithm())        
         self.addAlgorithm(TileStatisticsAlgorithm())
-        
-        #self.addAlgorithm(LinesTerrainProfileAlgorithm())
-        #self.addAlgorithm(IlliniDrainageToolsAlgorithm())
-        # add additional algorithms here
-        # self.addAlgorithm(MyOtherAlgorithm())
+        self.addAlgorithm(FlowAlgorithm())
+        self.addAlgorithm(OrderingAlgorithm())
+        self.addAlgorithm(CoordinatesAlgorithm())
+        self.addAlgorithm(ElevationAlgorithm())        
+        self.addAlgorithm(BuryAlgorithm())
+        self.addAlgorithm(ReadoutAlgorithm())
+        self.addAlgorithm(BenefitsAlgorithm())                
 
     def id(self):
         """

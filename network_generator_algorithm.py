@@ -46,7 +46,6 @@ class NetworkGeneratorAlgorithm(QgsProcessingAlgorithm):
     INPUT_LINE = 'INPUT_LINE'
     REVERSE_OPTION = 'REVERSE_OPTION'
     INPUT_FIELD_ID = 'INPUT_FIELD_ID'
-    #FLOW_OUTPUT = 'FLOW_OUTPUT'
     OUTPUT = 'OUTPUT'
     
     def tr(self, string):
@@ -56,7 +55,7 @@ class NetworkGeneratorAlgorithm(QgsProcessingAlgorithm):
         return NetworkGeneratorAlgorithm()
         
     def name(self):
-        return '6. Tile Network Generator'
+        return 'g. Tile Network Generator'
 
     def displayName(self):
         return self.tr(self.name())
@@ -74,10 +73,13 @@ class NetworkGeneratorAlgorithm(QgsProcessingAlgorithm):
         
     def shortHelpString(self):
         return self.tr("""This tool creates a connected Network of Tile Lines using each line segment of a vector line layer. 
+        It is the routine that serves as the "check for topologically-sound networks".
+        
         Workflow: 
-        1. Select a Vector Line layer that is Topologically Sound (e.g. Exploded) 
-        2. Click on the displayed line layer to select an outlet line segment  
-        3. Click on \"Run\"
+        1. Select a Vector Line layer that is Topologically Sound. This is a follow-up from "Routine F"
+        2. On the Map Canvas, select an outlet line segment from the displayed line layer
+        3. Save the output file (optional)        
+        4. Click on \"Run\"
         
         The script will give out an output with default names as:
                
@@ -87,17 +89,15 @@ class NetworkGeneratorAlgorithm(QgsProcessingAlgorithm):
         """) 
         
     def helpUrl(self):
-        return "http://www.wq.illinois.edu/DG/PublicAccess.pdf"
+        return "https://publish.illinois.edu/illinoisdrainageguide/files/2022/06/PublicAccess.pdf" 
     
        
     def initAlgorithm(self, config=None):        
-        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LINE, self.tr('Select Tile Lines'), [QgsProcessing.TypeVectorLine]))        
-        #self.addParameter(QgsProcessingParameterField(self.INPUT_FIELD_ID, self.tr("Field ID from Line Layer"), parentLayerParameterName = self.INPUT_LINE, type = QgsProcessingParameterField.Any, optional = True))        
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LINE, self.tr('Select Tile Lines'), [QgsProcessing.TypeVectorLine]))      
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Tile Network')))    
         
     def processAlgorithm(self, parameters, context, feedback):
-        #algresult = processing.run('native:extractvertices', {'INPUT': parameters[self.INPUT_LINE], 'OUTPUT': parameters[self.FLOW_OUTPUT]}, context=context, feedback=feedback, is_child_algorithm=True)
-                                                             
+                                                           
         source = self.parameterAsSource(parameters, self.INPUT_LINE, context)
         
         flip_opt = self.parameterAsString(parameters, self.REVERSE_OPTION, context)

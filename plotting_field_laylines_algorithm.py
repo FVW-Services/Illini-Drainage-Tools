@@ -64,7 +64,7 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         return PlottingFieldLaylinesAlgorithm()
                 
     def name(self):
-        return '2. Plot Field Laylines'
+        return 'd. Plot Field Laylines'
 
     def displayName(self):
         return self.tr(self.name())
@@ -81,12 +81,13 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         return icon
         
     def shortHelpString(self):
-        return self.tr( """This tool is used to find the surface water flow path on a field. 
+        return self.tr( """This tool is used to find the surface water flow paths on a field. 
         
         Workflow: 
         1. Select a LiDAR DEM Raster Layer and a Polygon Vector Layer. 
-        2. Select a Desired Contour Interval (feet) 
-        3. Click on \"Run\"              
+        2. Specify a Desired Contour Interval (feet)
+        3. Save the output files (optional)        
+        4. Click on \"Run\"              
                 
         The script will give out three outputs.       
                 
@@ -94,7 +95,7 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         """)   
         
     def helpUrl(self):
-        return "http://www.wq.illinois.edu/DG/DrainageGuide.html" 
+        return "https://publish.illinois.edu/illinoisdrainageguide/files/2022/06/PublicAccess.pdf" 
     
     
     def initAlgorithm(self, config=None):
@@ -104,10 +105,8 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterNumber('ContourInterval', 'Contour Line Interval (ft)', type=QgsProcessingParameterNumber.Double, maxValue=100.0, defaultValue=1))      
         self.addParameter(QgsProcessingParameterFeatureSink('UnfilledDEM', 'Unfilled Laylines', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))
         self.addParameter(QgsProcessingParameterFeatureSink('FilledContour', 'Filled Contour Lines', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))
-        self.addParameter(QgsProcessingParameterFeatureSink('FilledDEM', 'Filled Laylines', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))
-        #self.addParameter(QgsProcessingParameterFeatureSink('InnerPointProfiles', 'Inner Points Profile', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))       
+        self.addParameter(QgsProcessingParameterFeatureSink('FilledDEM', 'Filled Laylines', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))            
         
-
     def processAlgorithm(self, parameters, context, model_feedback):
         # Use a multi-step feedback, so that individual child algorithm progress reports are adjusted for the
         # overall progress through the model

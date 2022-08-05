@@ -65,7 +65,7 @@ class LineGridAlgorithm(QgsProcessingAlgorithm):
         return LineGridAlgorithm()
                 
     def name(self):
-        return '3. Tile Layout Grids'
+        return 'b. Tile Layout Grids'
 
     def displayName(self):
         return self.tr(self.name())
@@ -85,20 +85,21 @@ class LineGridAlgorithm(QgsProcessingAlgorithm):
         return self.tr( """This tool creates a merged vector layers (both linear and perpendicular) of grids covering a given extent of a Field.         
         
         Workflow: 
-        1. From the Grid Extent options, choose the "Use Map Canvas Extent" to define the spatial extent for the grid lines. 
-        2. Specify the grid cell dimensions. The Default values can be left so if desired.
-        3. From the layers Panel, left-click on the Field Boundary Layer to highlight it and then on the map Canvas "Zoom Out" a liitle bit
-        4. Click on \"Run\"
+        1. From the layers Panel, left-click on the Field Boundary Layer to highlight it and then on the map Canvas "Zoom Out" a liitle bit
+        2. From the Grid Extent options, choose the "Use Map Canvas Extent" to define the spatial extent for the grid lines
+        3. Specify the grid cell dimensions. The Default values can be left so if desired  
+        4. Save the output files (optional)
+        5. Click on \"Run\"
                        
         The script will give out two outputs.        
         
-        Note: To have the full benefits of this tool, ensure the input Boundary Layer is at least twice the field of interest. 
+        Note: To have the full benefits of this tool, ensure the input Field Boundary Layer is at least twice the size of tile layout area. 
                 
         The help link in the Graphical User Interface (GUI) provides more information about the plugin.
         """) 
         
     def helpUrl(self):
-        return "http://www.wq.illinois.edu/DG/DrainageGuide.html" 
+        return "https://publish.illinois.edu/illinoisdrainageguide/files/2022/06/PublicAccess.pdf"  
         
     
     def initAlgorithm(self, config=None):
@@ -122,20 +123,7 @@ class LineGridAlgorithm(QgsProcessingAlgorithm):
         alg_params = {'TYPE': 1, 'EXTENT': parameters['Extent'], 'HSPACING': parameters['GridWidth'], 'VSPACING': parameters['GridHeight'], 'HOVERLAY': 0, 'VOVERLAY': 0, 'CRS': parameters['CRS'], 'OUTPUT': parameters['LinearGrid']}
         
         outputs['CreateGrid'] = processing.run('native:creategrid', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #1
-        
-        # outFeats = outputs['CreateGrid']['OUTPUT']
-        
-        # #Editing a Line Layer
-        # symbol = QgsLineSymbol.createSimple({'line_style': 'dot', 'line_width': '0.99', 'color': 'red'})
-        # outFeats.renderer().setSymbol(symbol)
-        # # show the change
-        # outFeats.triggerRepaint()
-        
-        # results['DisplayedGrid'] = outFeats
-        # results['DisplayedGrid'] = outputs['CreateGrid']['OUTPUT']
-        # return results
-
-        
+                       
         feedback.setCurrentStep(1)
         if feedback.isCanceled():
             return {}
@@ -144,18 +132,7 @@ class LineGridAlgorithm(QgsProcessingAlgorithm):
         # Create the original parent grid
         alg_params = {'INPUT': outputs['CreateGrid']['OUTPUT'], 'ANGLE': parameters['RotateGrid'], 'OUTPUT': parameters['PerpendicularGrid']}        
         outputs['RotateFeatures'] = processing.run('native:rotatefeatures', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #2
-        
-        # outFeats = outputs['RotateFeatures']['OUTPUT']
-        
-        # #Editing a Line Layer
-        # symbol = QgsLineSymbol.createSimple({'line_style': 'dot', 'line_width': '0.99', 'color': 'red'})
-        # outFeats.renderer().setSymbol(symbol)
-        # # show the change
-        # outFeats.triggerRepaint()
-        
-        # results['DisplayedGrid'] = outFeats
-        # return results
-        
+               
         results['DisplayedGrid'] = outputs['RotateFeatures']['OUTPUT']
         return results               
     

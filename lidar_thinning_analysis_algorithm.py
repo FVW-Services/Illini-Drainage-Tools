@@ -60,6 +60,47 @@ import numpy as np
 
 class LidarThinningAnalysisAlgorithm(QgsProcessingAlgorithm):            
         
+    def tr(self, string):
+        return QCoreApplication.translate('Processing', string)
+        
+    def createInstance(self):
+        return LidarThinningAnalysisAlgorithm()
+        
+    def name(self):
+        return 'c. LiDARThAn'
+
+    def displayName(self):
+        return self.tr(self.name())
+
+    def group(self):
+        return self.tr(self.groupId())
+
+    def groupId(self):
+        return ''
+        
+    def icon(self):
+        cmd_folder = os.path.split(inspect.getfile(inspect.currentframe()))[0]
+        icon = QIcon(os.path.join(os.path.join(cmd_folder, 'logo.png')))
+        return icon
+        
+    def shortHelpString(self):
+        return self.tr("""This Tool extracts a LiDAR DEM data using an input boundary layer and then performs specific DEM analysis on the Drainage Site.
+        
+        Workflow: 
+        1. Select a LiDAR DEM Raster Layer and a Polygon Vector Layer
+        2. Specify a Desired Pixel Size (feet)
+        3. Save the output files (optional)
+        4. Click on \"Run\"
+        
+        The script will gives out four outputs.         
+                               
+        The help link in the Graphical User Interface (GUI) provides more information about the plugin.             
+        """)    
+        
+    def helpUrl(self):
+        return "https://publish.illinois.edu/illinoisdrainageguide/files/2022/06/PublicAccess.pdf"   
+    
+    
     def initAlgorithm(self, config=None):        
         self.addParameter(QgsProcessingParameterRasterLayer('IDT', 'Field LiDAR DEM', defaultValue=None))
         self.addParameter(QgsProcessingParameterVectorLayer('VectorBound', 'Field Boundary', types=[QgsProcessing.TypeVectorPolygon], defaultValue=None))
@@ -131,8 +172,7 @@ class LidarThinningAnalysisAlgorithm(QgsProcessingAlgorithm):
         if feedback.isCanceled():
            return {} 
            
-        # Convert Pixel Centroid Layer        
-        #alg_params = {'INPUT_RASTER': outputs['Resampling']['OUTPUT'], 'RASTER_BAND': 1, 'FIELD_NAME': 'VALUE', 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
+        # Convert Pixel Centroid Layer       
         alg_params = {'INPUT_RASTER': outputs['Resampling']['OUTPUT'], 'RASTER_BAND': 1, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}         
                 
         outputs['PixelsToPoints'] = processing.run('qgis:pixelstopoints', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #7                
@@ -158,42 +198,4 @@ class LidarThinningAnalysisAlgorithm(QgsProcessingAlgorithm):
         results['MergePoints'] = outputs['Union']['OUTPUT']
         return results 
 
-    def tr(self, string):
-        return QCoreApplication.translate('Processing', string)
-        
-    def createInstance(self):
-        return LidarThinningAnalysisAlgorithm()
-        
-    def name(self):
-        return '1. LiDARThAn'
-
-    def displayName(self):
-        return self.tr(self.name())
-
-    def group(self):
-        return self.tr(self.groupId())
-
-    def groupId(self):
-        return ''
-        
-    def icon(self):
-        cmd_folder = os.path.split(inspect.getfile(inspect.currentframe()))[0]
-        icon = QIcon(os.path.join(os.path.join(cmd_folder, 'logo.png')))
-        return icon
-        
-    def shortHelpString(self):
-        return self.tr("""This Tool extracts a LiDAR DEM data out using an input boundary layer and then performs specific DEM analysis on the Drainage Site.
-        
-        Workflow: 
-        1. Select a LiDAR DEM Raster Layer and a Polygon Vector Layer. 
-        2. Select a Desired Pixel Size (feet) 
-        3. Click on \"Run\"
-        
-        The script will gives out four outputs.         
-                               
-        The help link in the Graphical User Interface (GUI) provides more information about the plugin.             
-        """)    
-        
-    def helpUrl(self):
-        return "http://www.wq.illinois.edu/DG/DrainageGuide.html"         
     

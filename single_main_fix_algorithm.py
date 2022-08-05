@@ -64,7 +64,7 @@ class SingleMainFixAlgorithm(QgsProcessingAlgorithm):
         return SingleMainFixAlgorithm()
                 
     def name(self):
-        return '4. Single-Main Node Generator'
+        return 'e1. Single-Main Node Generator'
 
     def displayName(self):
         return self.tr(self.name())
@@ -84,18 +84,19 @@ class SingleMainFixAlgorithm(QgsProcessingAlgorithm):
         return self.tr( """This tool is used to clean up a line layer from its global properties in space. 
         
         Workflow:         
-        1. Choose a two vector Line layers : Single Main and Laterals
-        2. Choose a desired Coordinate Reference System for displaying the generated points 
-        3. Click on \"Run\"               
+        1. Select two Vector Line layers respectively: 1: Single Main; and 2: Associated Laterals
+        2. Select a desired Coordinate Reference System for displaying the generated points
+        3. Save the output file (optional)
+        4. Click on \"Run\"               
                 
         The script will give out an output.
-        Use this output with "Routine 6" to have a topologically sound tile network.        
+        Use this output with "Routine F" to have a topologically sound tile network.        
                 
         The help link in the Graphical User Interface (GUI) provides more information about the plugin.
         """)   
         
     def helpUrl(self):
-        return "http://www.wq.illinois.edu/DG/DrainageGuide.html" 
+        return "https://publish.illinois.edu/illinoisdrainageguide/files/2022/06/PublicAccess.pdf" 
     
     
     def initAlgorithm(self, config=None):
@@ -103,8 +104,7 @@ class SingleMainFixAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterVectorLayer('VectorMain', 'Single Tile Main', types=[QgsProcessing.TypeVectorLine], defaultValue=None))
         self.addParameter(QgsProcessingParameterVectorLayer('VectorLaterals', 'Associated Lateral Lines', types=[QgsProcessing.TypeVectorLine], defaultValue=None))
         self.addParameter(QgsProcessingParameterCrs('CRS', 'Coordinate Reference System', defaultValue='EPSG:3435'))
-        self.addParameter(QgsProcessingParameterFeatureSink('LineFixes', 'New Line Nodes', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))        
-        #self.addParameter(QgsProcessingParameterField('FGH', 'Field ID from Line Layer', parentLayerParameterName = 'VectorLineLayer', type = QgsProcessingParameterField.Any))                
+        self.addParameter(QgsProcessingParameterFeatureSink('LineFixes', 'New Line Nodes', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))                              
         
     def processAlgorithm(self, parameters, context, model_feedback):
         # Use a multi-step feedback, so that individual child algorithm progress reports are adjusted for the
@@ -122,19 +122,7 @@ class SingleMainFixAlgorithm(QgsProcessingAlgorithm):
         feedback.setCurrentStep(1)
         if feedback.isCanceled():
             return {}                    
-        
-        # # Field calculator to Add New Field
-        # alg_params = {
-            # 'FIELD_LENGTH': 10,
-            # 'FIELD_NAME': 'New_ID',
-            # 'FIELD_PRECISION': 2,
-            # 'FIELD_TYPE': 1,
-            # 'FORMULA': ' @row_number ',
-            # 'INPUT': outputs['FaGiHe']['OUTPUT'],
-            # 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
-        # }
-        # outputs['FieldCalculator1'] = processing.run('native:fieldcalculator', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #2
-
+               
         # Add Incremental Field     
         alg_params = {'INPUT': outputs['FaGiHe']['OUTPUT'], 'FIELD_NAME': 'New_ID', 'START': 1, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
                 
@@ -154,7 +142,7 @@ class SingleMainFixAlgorithm(QgsProcessingAlgorithm):
             return {}
             
         # Extend Lines     
-        alg_params = {'INPUT': outputs['RetainFields']['OUTPUT'], 'START_DISTANCE':0, 'END_DISTANCE':5,'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
+        alg_params = {'INPUT': outputs['RetainFields']['OUTPUT'], 'START_DISTANCE':0, 'END_DISTANCE':7,'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
         
         outputs['ExtendLines'] = processing.run('native:extendlines', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #4
         
