@@ -67,7 +67,7 @@ class LidarThinningAnalysisAlgorithm(QgsProcessingAlgorithm):
         return LidarThinningAnalysisAlgorithm()
         
     def name(self):
-        return 'c. LiDARThAn'
+        return 'b. LiDARThAn'
 
     def displayName(self):
         return self.tr(self.name())

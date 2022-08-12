@@ -110,7 +110,7 @@ class TileStatisticsAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterFeatureSink('TileStats', 'Tile Statistics', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))
         self.addParameter(QgsProcessingParameterBoolean('VERBOSE_LOG', 'Verbose logging', optional=True, defaultValue=True))
         self.addParameter(QgsProcessingParameterVectorLayer('VectorLineLayer', 'Tile Network Lines', types=[QgsProcessing.TypeVectorLine], defaultValue=None))
-        self.addParameter(QgsProcessingParameterNumber('SegmentLength', 'Line Segment (=> 5 times pixel size)', type=QgsProcessingParameterNumber.Double, maxValue=1.79769e+308, defaultValue=1000))
+        self.addParameter(QgsProcessingParameterNumber('SegmentLength', 'Line Segment (=> 5 times pixel size)', type=QgsProcessingParameterNumber.Double, maxValue=1.79769e+308, defaultValue=5000))
 
     def processAlgorithm(self, parameters, context, model_feedback):
         # Use a multistep feedback, so that individual child algorithm progress reports are adjusted for the

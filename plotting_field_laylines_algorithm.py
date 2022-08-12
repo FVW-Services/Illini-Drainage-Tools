@@ -64,7 +64,7 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         return PlottingFieldLaylinesAlgorithm()
                 
     def name(self):
-        return 'd. Plot Field Laylines'
+        return 'c. Plot Field Laylines'
 
     def displayName(self):
         return self.tr(self.name())

@@ -121,7 +121,7 @@ class ElevationAlgorithm(QgsProcessingAlgorithm):
                                        
         
         # Final Retained Fields of Interest
-        alg_params = {"INPUT": parameters['LineSegmentLayer'], "FIELDS": ['Tile_ID', 'Tile_TO', 'Elev_First', 'Elev_Last', 'True_Length', 'Abs_Slope', 'FLOW_LINE', 'FLOW_ORDER', 'Tile_ORDER'], "OUTPUT": parameters['FinalFields']}
+        alg_params = {"INPUT": parameters['LineSegmentLayer'], "FIELDS": ['Tile_ID', 'Tile_TO', 'Elev_First', 'Elev_Last', 'True_Length', 'Abs_Slope', 'FLOW_LINE', 'TILE_FLOW', 'FLOW_ORDER', 'Tile_ORDER'], "OUTPUT": parameters['FinalFields']}
                     
         outputs['RetainFields'] = processing.run('native:retainfields', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #1
 

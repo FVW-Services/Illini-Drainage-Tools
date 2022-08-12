@@ -141,6 +141,7 @@ class FlowAlgorithm(QgsProcessingAlgorithm):
         for field in raw_fields:
             out_fields.append(QgsField(field.name(), field.type()))
         out_fields.append(QgsField('FLOW_LINE', QVariant.String))
+        out_fields.append(QgsField('TILE_FLOW', QVariant.String))
                 
         '''load data from layer "raw_layer" '''
         feedback.setProgressText(self.tr("Loading network layer\n "))
@@ -188,8 +189,9 @@ class FlowAlgorithm(QgsProcessingAlgorithm):
             # Add a feature in the sink
             outFt = QgsFeature(out_fields)
             outFt.setGeometry(feature.geometry())
-            outFt.setAttributes(feature.attributes() + [None])
+            outFt.setAttributes(feature.attributes() + [None] + [None])
             outFt["FLOW_LINE"] = result1[n]
+            outFt["TILE_FLOW"] = total - result1.index(feature[from_field])
             sink.addFeature(outFt, QgsFeatureSink.FastInsert)
             
             # Update the progress bar

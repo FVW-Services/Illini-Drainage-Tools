@@ -65,7 +65,7 @@ class LineGridAlgorithm(QgsProcessingAlgorithm):
         return LineGridAlgorithm()
                 
     def name(self):
-        return 'b. Tile Layout Grids'
+        return 'd. Tile Layout Grids'
 
     def displayName(self):
         return self.tr(self.name())

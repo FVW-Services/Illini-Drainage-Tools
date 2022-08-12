@@ -110,7 +110,7 @@ class FixLineTopologyAlgorithm(QgsProcessingAlgorithm):
         # Use a multi-step feedback, so that individual child algorithm progress reports are adjusted for the
         # overall progress through the model
         
-        feedback = QgsProcessingMultiStepFeedback(5, model_feedback)
+        feedback = QgsProcessingMultiStepFeedback(6, model_feedback)
         results = {}
         outputs = {}
                         
@@ -162,12 +162,29 @@ class FixLineTopologyAlgorithm(QgsProcessingAlgorithm):
         feedback.setCurrentStep(4)
         if feedback.isCanceled():
             return {}
-            
+                    
         # Explode Line Segments               
-        alg_params = {'INPUT': outputs['RemoveNullGeometries']['OUTPUT'], 'OUTPUT': parameters['LineFixes']}
+        alg_params = {'INPUT': outputs['RemoveNullGeometries']['OUTPUT'], 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}        
         
         outputs['ExplodeLines'] = processing.run('native:explodelines', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #5  
-        results['LineFixes'] = outputs['ExplodeLines']['OUTPUT']
+                
+        feedback.setCurrentStep(5)
+        if feedback.isCanceled():
+            return {}
+        
+        # Field calculator
+        alg_params = {
+            'FIELD_LENGTH': 10,
+            'FIELD_NAME': 'ID',
+            'FIELD_PRECISION': 0,
+            'FIELD_TYPE': 1,
+            'FORMULA': '$id',
+            'INPUT': outputs['ExplodeLines']['OUTPUT'],
+            'OUTPUT': parameters['LineFixes']
+        }
+        outputs['FieldCalculator'] = processing.run('native:fieldcalculator', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #6
+        results['LineFixes'] = outputs['FieldCalculator']['OUTPUT']
+        
         return results
 
     
