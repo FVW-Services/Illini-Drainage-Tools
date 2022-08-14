@@ -36,6 +36,7 @@ from .plotting_field_laylines_algorithm import PlottingFieldLaylinesAlgorithm
 from .line_grid_algorithm import LineGridAlgorithm
 from .single_main_fix_algorithm import SingleMainFixAlgorithm
 from .multiple_mains_fix_algorithm import MultipleMainsFixAlgorithm
+from .complex_mains_fix_algorithm import ComplexMainsFixAlgorithm
 from .fix_line_topology_algorithm import FixLineTopologyAlgorithm
 from .network_generator_algorithm import NetworkGeneratorAlgorithm
 from .tile_statistics_algorithm import TileStatisticsAlgorithm
@@ -82,6 +83,7 @@ class IlliniDrainageToolsProvider(QgsProcessingProvider):
         self.addAlgorithm(LineGridAlgorithm())
         self.addAlgorithm(SingleMainFixAlgorithm())
         self.addAlgorithm(MultipleMainsFixAlgorithm())
+        self.addAlgorithm(ComplexMainsFixAlgorithm())
         self.addAlgorithm(FixLineTopologyAlgorithm())                
         self.addAlgorithm(NetworkGeneratorAlgorithm())        
         self.addAlgorithm(TileStatisticsAlgorithm())

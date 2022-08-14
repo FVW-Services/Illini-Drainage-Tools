@@ -276,7 +276,6 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
         
         individual_flow_rates = {}
         sources_map = {}  # string to list[string]
-        dcoeffs = []
 
         for (n, feature) in enumerate(raw_layer.getFeatures()):
             # Stop the algorithm if cancel button has been clicked
@@ -304,9 +303,6 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
                 sources_map[tile_to].append(tile_from)
             else:
                 sources_map[tile_to] = [tile_from]
-                
-            # fill dcoeffs
-            dcoeffs.append(DCoeff)
 
         flow_rates = {}
         
@@ -330,7 +326,7 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
             outFt.setAttributes(feature.attributes() + [None, None, None, None])
 
             flow = get_flow_rate(feature[linez_id])
-            outFt[self.D_COEFF_KEY] = dcoeffs[n]
+            outFt[self.D_COEFF_KEY] = DCoeff
             outFt[self.FLOW_KEY] = flow
             outFt[self.PIPE_SIZE_KEY] = self.getPipeSize(flow, float(feature[slope_id]), materials)
             outFt[self.NOMINAL_PIPE_SIZE_KEY] = self.getNominalSize(outFt[self.PIPE_SIZE_KEY])

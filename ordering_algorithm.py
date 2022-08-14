@@ -88,7 +88,7 @@ class OrderingAlgorithm(QgsProcessingAlgorithm):
         return icon
         
     def shortHelpString(self):
-        return self.tr( """This tool uses Falasys Hypothesis to determine the Strahler Order for topologically-sound connected tile networks. 
+        return self.tr( """This tool uses the relationships between the line segments to determine the Strahler Order for topologically-sound connected tile networks. 
         
         Workflow:         
         1. Select a vector Line layer. This is a follow-up from "Routine H"

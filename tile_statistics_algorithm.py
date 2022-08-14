@@ -196,7 +196,7 @@ class TileStatisticsAlgorithm(QgsProcessingAlgorithm):
             'FIELD_NAME': 'Abs_Slope',
             'FIELD_PRECISION': 3,
             'FIELD_TYPE': 0,
-            'FORMULA': '(abs(\"Elev_First\" - \"Elev_Last\") / \"length\" ) *100',
+            'FORMULA': '(abs(\"Elev_First\" - \"Elev_Last\") / \"length\" ) *100 + 0.01',
             'INPUT': outputs['FieldCalculator1']['OUTPUT'],
             'OUTPUT': parameters['TileStats']
         }
