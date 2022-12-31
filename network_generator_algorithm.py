@@ -93,7 +93,7 @@ class NetworkGeneratorAlgorithm(QgsProcessingAlgorithm):
     
        
     def initAlgorithm(self, config=None):        
-        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LINE, self.tr('Select Tile Lines'), [QgsProcessing.TypeVectorLine]))      
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LINE, self.tr('Rebuilt Tile Lines with Fixed Geometries'), [QgsProcessing.TypeVectorLine]))      
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Tile Network')))    
         
     def processAlgorithm(self, parameters, context, feedback):
@@ -134,9 +134,9 @@ class NetworkGeneratorAlgorithm(QgsProcessingAlgorithm):
         #append fields
         for field in raw_fields:
             out_fields.append(QgsField(field.name(), field.type()))
-        out_fields.append(QgsField('Tile_ID', QVariant.String))
-        out_fields.append(QgsField('Tile_TO', QVariant.String))
-        out_fields.append(QgsField('Tile_FROM', QVariant.String))
+        out_fields.append(QgsField('TILE_ID', QVariant.String))
+        out_fields.append(QgsField('TILE_TO', QVariant.String))
+        out_fields.append(QgsField('TILE_FROM', QVariant.String))
         
         '''get features'''
         feedback.setProgressText(self.tr("Loading line layer\n "))

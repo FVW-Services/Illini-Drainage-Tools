@@ -64,7 +64,7 @@ class ComplexMainsFixAlgorithm(QgsProcessingAlgorithm):
         return ComplexMainsFixAlgorithm()
                 
     def name(self):
-        return 'e3. Complex Multiple-Main Node Generator'
+        return 'e. Tile Node Generator'
 
     def displayName(self):
         return self.tr(self.name())
@@ -81,18 +81,17 @@ class ComplexMainsFixAlgorithm(QgsProcessingAlgorithm):
         return icon
         
     def shortHelpString(self):
-        return self.tr( """This tool is used to clean up a line layer from its global properties in space. 
+        return self.tr( """This tool is used to clean up a proposed line layer from its global properties in space, and generate nodes along those lines. 
         
         Workflow:         
         1. Select a Vector Line layer of a More Complex Layout of Mains and Submains 
-        2. Select the Field ID that represents the line segments from the displayed vector line layer
-        3. Make a Decision as to whether to extend the "End Distance" for each line segment or not. Carefully examine the tile layout. Default value is encouraged except otherwise needed.
-        4. Select a desired Coordinate Reference System for displaying the generated points
-        5. Save the output file (optional)        
-        6. Click on \"Run\"               
+        2. Carefully examine the tile layout and Make a Decision as to whether to Adjust the "Start or End Distances" for each line segment or not. Default value is encouraged except otherwise.
+        3. Select a desired Coordinate Reference System for displaying the generated points
+        4. Save the output file (optional)        
+        5. Click on \"Run\"               
                 
         The script will give out an output. 
-        Use this output with "Routine F" to have a topologically sound tile network. 
+        Use this output with "Routine F" to create a topologically sound tile network. 
                 
         The help link in the Graphical User Interface (GUI) provides more information about the plugin.
         """)   
@@ -105,7 +104,8 @@ class ComplexMainsFixAlgorithm(QgsProcessingAlgorithm):
         
         self.addParameter(QgsProcessingParameterVectorLayer('VectorLineLayer', 'Proposed Tile Lines', types=[QgsProcessing.TypeVectorLine], defaultValue=None))
         #self.addParameter(QgsProcessingParameterField('FGH', 'Field ID from Line Layer', parentLayerParameterName = 'VectorLineLayer', type = QgsProcessingParameterField.Any))
-        self.addParameter(QgsProcessingParameterNumber('Distancezs', 'Extended Distances', type=QgsProcessingParameterNumber.Double, maxValue=100.0, defaultValue=0.00))        
+        self.addParameter(QgsProcessingParameterNumber('StartPoints', 'Extend Starting Lines', type=QgsProcessingParameterNumber.Double, maxValue=100.0, defaultValue=5.00)) 
+        self.addParameter(QgsProcessingParameterNumber('EndPoints', 'Extend Ending Lines', type=QgsProcessingParameterNumber.Double, maxValue=100.0, defaultValue=5.00))        
         self.addParameter(QgsProcessingParameterCrs('CRS', 'Coordinate Reference System', defaultValue='EPSG:3435'))
         self.addParameter(QgsProcessingParameterFeatureSink('LineFixes', 'New Line Nodes', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))       
                                
@@ -113,33 +113,21 @@ class ComplexMainsFixAlgorithm(QgsProcessingAlgorithm):
         # Use a multi-step feedback, so that individual child algorithm progress reports are adjusted for the
         # overall progress through the model
         
-        feedback = QgsProcessingMultiStepFeedback(7, model_feedback)
+        feedback = QgsProcessingMultiStepFeedback(6, model_feedback)
         results = {}
         outputs = {}
                 
-        alg_params = {'INPUT': parameters['VectorLineLayer'], 'START_DISTANCE':0, 'END_DISTANCE':parameters['Distancezs'], 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
-
-        # Check if vector line layer 'VectorLineLayer' is in geogrephic coordinates
-        # vector_layer = self.parameterAsVectorLayer(parameters, 'VectorLineLayer', context)
-        # if vector_layer.crs().isGeographic():
-
-            # w = QtWidgets.QWidget()
-            # b = QtWidgets.QLabel(w)
-            # w.setGeometry(400,400,800,20)
-            # w.setWindowTitle("Attention: vector line layers in geographic coordinates are not allowed! Ending plugin without slope calculation...")
-            # w.show()
-            # time.sleep(10)
-            # return results
-
-        # Extend Lines     
-        outputs['ExtendLines'] = processing.run('native:extendlines', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #1
+        alg_params = {'INPUT': parameters['VectorLineLayer'], 'START_DISTANCE':parameters['StartPoints'], 'END_DISTANCE':parameters['EndPoints'], 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
+        
+        # Adjusts Lines     
+        outputs['AdjustsLines'] = processing.run('native:extendlines', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #1
         
         feedback.setCurrentStep(1)
         if feedback.isCanceled():
             return {}
         
         # MultiPart To SingleParts
-        alg_params = {'INPUT': outputs['ExtendLines']['OUTPUT'], 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
+        alg_params = {'INPUT': outputs['AdjustsLines']['OUTPUT'], 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
         
         outputs['MultiPartToSingleParts'] = processing.run('native:multiparttosingleparts', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #2
 
@@ -175,20 +163,11 @@ class ComplexMainsFixAlgorithm(QgsProcessingAlgorithm):
         if feedback.isCanceled():
             return {}
 
-        # Snap Points to Points
-        alg_params = {'INPUT': outputs['AddxyFields']['OUTPUT'], 'SNAP': outputs['AddxyFields']['OUTPUT'], 'DISTANCE':10, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
+        # Snap Geometries to Layers        
+        alg_params = {'INPUT': outputs['AddxyFields']['OUTPUT'], 'REFERENCE_LAYER': outputs['AddxyFields']['OUTPUT'], 'TOLERANCE': 10, 'BEHAVIOR': 0, 'OUTPUT': parameters['LineFixes']}
+                
+        outputs['SnapGeometries'] = processing.run('native:snapgeometries', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #6
+                
+        results['LineFixes'] = outputs['SnapGeometries']['OUTPUT']
+        return results         
         
-        outputs['SnapPoints'] = processing.run('saga:snappointstopoints', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #6
-
-        feedback.setCurrentStep(6)
-        if feedback.isCanceled():
-            return {}
-            
-        # Snap Points to Lines
-        alg_params = {'INPUT': outputs['SnapPoints']['OUTPUT'], 'SNAP': parameters['VectorLineLayer'], 'DISTANCE':10, 'OUTPUT': parameters['LineFixes']}
-        
-        outputs['SnapLines'] = processing.run('saga:snappointstolines', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #7
-                        
-        results['LineFixes'] = outputs['SnapLines']['OUTPUT']
-        return results      
-    

@@ -30,9 +30,18 @@ __copyright__ = '(C) 2022 by FALASY  Anamelechi'
 
 __revision__ = '$Format:%H$'
 
+import processing
 import os, math
 import inspect
+import time
+import qgis.utils
+import numpy as np
+
+from qgis.gui import *
+from PyQt5 import QtWidgets
+from collections import Counter
 from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtCore import QCoreApplication, QVariant
 
 from qgis.core import QgsProcessing
 from qgis.core import QgsProcessingAlgorithm
@@ -44,20 +53,26 @@ from qgis.core import QgsProcessingParameterFeatureSink
 from qgis.core import QgsProcessingParameterBoolean
 from qgis.core import QgsProcessingParameterVectorLayer
 from qgis.core import QgsProcessingParameterNumber
+from qgis.core import QgsProcessingParameterPoint
 from qgis.core import QgsProcessingParameterField
+from qgis.core import QgsProcessingParameterCrs
+from qgis.core import QgsCoordinateReferenceSystem
+from qgis.core import QgsFeatureSink
+from qgis.core import QgsFeatureRequest
+from qgis.core import QgsVectorLayer
+from qgis.core import QgsLineSymbol
+from qgis.core import QgsProperty
+from qgis.core import QgsProcessingLayerPostProcessorInterface
 
-from qgis.core import (edit,QgsProcessingParameterBoolean,QgsField, QgsFeature, QgsPointXY, QgsProcessingParameterExtent, QgsProcessingParameterNumber, QgsProcessing,QgsWkbTypes, QgsGeometry, QgsProcessingAlgorithm, QgsProcessingMultiStepFeedback, QgsProcessingParameterCrs, QgsProcessingParameterFeatureSource, QgsProcessingParameterFeatureSink,QgsProcessingParameterNumber,QgsFeatureSink,QgsFeatureRequest,QgsFields,QgsProperty,QgsVectorLayer)
-import processing
 
-from PyQt5 import QtWidgets
-from qgis.PyQt.QtCore import QCoreApplication, QVariant
+from qgis.core import (edit,QgsField, QgsFeature, QgsPointXY, QgsWkbTypes, QgsGeometry, QgsFields)
 
-from qgis.core import *
-from collections import Counter
-import time
-import numpy as np
+class LineGridAlgorithm(QgsProcessingAlgorithm):
 
-class LineGridAlgorithm(QgsProcessingAlgorithm):        
+    ROTATION_KEY = 'ROTATION_KEY'
+    USE_ASS_KEY = 'USE_ASS_KEY'
+
+        
     def tr(self, string):
         return QCoreApplication.translate('Processing', string)
         
@@ -99,9 +114,8 @@ class LineGridAlgorithm(QgsProcessingAlgorithm):
         """) 
         
     def helpUrl(self):
-        return "https://publish.illinois.edu/illinoisdrainageguide/files/2022/06/PublicAccess.pdf"  
+        return "https://publish.illinois.edu/illinoisdrainageguide/files/2022/06/PublicAccess.pdf"         
         
-    
     def initAlgorithm(self, config=None):
         self.addParameter(QgsProcessingParameterExtent('Extent', 'Grid Extent', defaultValue=None))
         self.addParameter(QgsProcessingParameterCrs('CRS', 'Coordinate Reference System', defaultValue='EPSG:3435'))
@@ -109,30 +123,90 @@ class LineGridAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterFeatureSink('PerpendicularGrid', 'Perpendicular Grids', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))            
         self.addParameter(QgsProcessingParameterNumber('GridWidth', 'Horizontal Spacing', type=QgsProcessingParameterNumber.Double, minValue=0.000001, defaultValue=100))
         self.addParameter(QgsProcessingParameterNumber('GridHeight', 'Vertical Spacing', type=QgsProcessingParameterNumber.Double, minValue=0.000001, defaultValue=100))
-        self.addParameter(QgsProcessingParameterNumber('RotateGrid', 'Rotation Angle', type=QgsProcessingParameterNumber.Double, minValue=1.0,maxValue=90.0, defaultValue=15.0))
-    def processAlgorithm(self, parameters, context, model_feedback):
-
+                
+        self.addParameter(QgsProcessingParameterNumber('RotateGrid', 'Rotation Angle', type=QgsProcessingParameterNumber.Double, minValue=1.0,maxValue=180.0, defaultValue=45.0))
+        self.addParameter(QgsProcessingParameterPoint('GridAnchor', 'Indicate Grid Center', defaultValue=None))
+        
+    def processAlgorithm(self, parameters, context, model_feedback):       
+        
         # Use a multistep feedback, so that individual child algorithm progress reports are adjusted for the
         # overall progress through the model
         feedback = QgsProcessingMultiStepFeedback(2, model_feedback)
         results = {}
         outputs = {}
                         
-        # Create grid
-        # Create the original parent grid
-        alg_params = {'TYPE': 1, 'EXTENT': parameters['Extent'], 'HSPACING': parameters['GridWidth'], 'VSPACING': parameters['GridHeight'], 'HOVERLAY': 0, 'VOVERLAY': 0, 'CRS': parameters['CRS'], 'OUTPUT': parameters['LinearGrid']}
-        
-        outputs['CreateGrid'] = processing.run('native:creategrid', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #1
-                       
+        # Create the Original Parent Grid [Straight]
+        grid_params = {
+            'TYPE': 1, 
+            'EXTENT': parameters['Extent'], 
+            'HSPACING': parameters['GridWidth'], 
+            'VSPACING': parameters['GridHeight'], 
+            'HOVERLAY': 0, 
+            'VOVERLAY': 0, 
+            'CRS': parameters['CRS'], 
+            'OUTPUT': parameters['LinearGrid']
+        }    
         feedback.setCurrentStep(1)
         if feedback.isCanceled():
             return {}
             
-        # Rotate grid
-        # Create the original parent grid
-        alg_params = {'INPUT': outputs['CreateGrid']['OUTPUT'], 'ANGLE': parameters['RotateGrid'], 'OUTPUT': parameters['PerpendicularGrid']}        
-        outputs['RotateFeatures'] = processing.run('native:rotatefeatures', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #2
-               
-        results['DisplayedGrid'] = outputs['RotateFeatures']['OUTPUT']
-        return results               
-    
+        outputs['CreateGrid'] = processing.run("native:creategrid", grid_params, context=context, feedback=feedback, is_child_algorithm=True)#1
+        results['CreateGrid'] = outputs['CreateGrid']['OUTPUT']
+        
+        # Rotate the Original Parent Grid [Perpendicular]
+        rotate_params = {
+            'INPUT': results['CreateGrid'], 
+            'ANGLE': parameters['RotateGrid'], 
+            'ANCHOR': parameters['GridAnchor'], 
+            'OUTPUT': parameters['PerpendicularGrid']
+        } 
+        feedback.setCurrentStep(2)
+        if feedback.isCanceled():
+            return {}                       
+        
+        outputs['RotateFeatures'] = processing.run('native:rotatefeatures', rotate_params, context=context, feedback=feedback, is_child_algorithm=True) #2
+        results['RotateFeatures'] = outputs['RotateFeatures']['OUTPUT']        
+        
+        if context.willLoadLayerOnCompletion(results['CreateGrid']):
+            context.layerToLoadOnCompletionDetails(results['CreateGrid']).setPostProcessor(GridPostProcessor.create())
+
+        if context.willLoadLayerOnCompletion(results['RotateFeatures']):
+            context.layerToLoadOnCompletionDetails(results['RotateFeatures']).setPostProcessor(LinePostProcessor.create())
+
+        return results
+        
+        
+class GridPostProcessor(QgsProcessingLayerPostProcessorInterface):
+
+    instance = None
+
+    def postProcessLayer(self, layer, context, feedback):
+        if not isinstance(layer, QgsVectorLayer):
+            return
+        renderer = layer.renderer().clone()
+        symbol = QgsLineSymbol.createSimple({'line_color': '191,191,191,255', 'line_width': '0.20', 'line_style': 'dash'})
+        renderer.setSymbol(symbol)
+        layer.setRenderer(renderer)
+
+    @staticmethod
+    def create() -> 'GridPostProcessor':
+        GridPostProcessor.instance = GridPostProcessor()
+        return GridPostProcessor.instance
+
+
+class LinePostProcessor(QgsProcessingLayerPostProcessorInterface):
+
+    instance = None
+
+    def postProcessLayer(self, layer, context, feedback):
+        if not isinstance(layer, QgsVectorLayer):
+            return
+        renderer = layer.renderer().clone()
+        symbol = QgsLineSymbol.createSimple({'line_color': '191,191,191,255', 'line_width': '0.20', 'line_style': 'dash'})
+        renderer.setSymbol(symbol)
+        layer.setRenderer(renderer)
+
+    @staticmethod
+    def create() -> 'LinePostProcessor':
+        LinePostProcessor.instance = LinePostProcessor()
+        return LinePostProcessor.instance        

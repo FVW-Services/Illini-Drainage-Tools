@@ -106,7 +106,7 @@ class FlowAlgorithm(QgsProcessingAlgorithm):
 
 
     def initAlgorithm(self, config):
-        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER, self.tr('Tile Network: from Tile Network Generator'), [QgsProcessing.TypeVectorLine], defaultValue=None))                
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER, self.tr('Sound Tile Network: from Tile Network Generator'), [QgsProcessing.TypeVectorLine], defaultValue=None))                
         
         self.addParameter(QgsProcessingParameterField(self.FROM_FIELD, self.tr("Tile_From"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
         

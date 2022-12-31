@@ -182,6 +182,29 @@ class OrderingAlgorithm(QgsProcessingAlgorithm):
                     result = a + 1
                 else:
                     result = max(a, b)
+            
+            elif len(ab_map[n]) == 3:
+                a, b, c = ab_map[n]  # get three elements respectively
+                a = calculate_order(a)
+                b = calculate_order(b)
+                c = calculate_order(c)
+                
+                temp = [a,b,c]
+                        
+                if a == b==c:
+                    result = a + 1
+                if a!=b!=c:
+                    result = max(temp)
+                if (a!=b) | (a!=c) | (b!=c): 
+                    c = Counter(temp)
+                    common = 0
+                    for i,j in c.items():
+                        if j == 2:
+                            common = i
+                    once = [x for x in temp if x!=common][0]
+                    twice = common+1
+                    result = max(once,twice) 
+                           
             else:
                 raise ValueError("Unreachable code")
             order_results[n] = result

@@ -30,35 +30,47 @@ __copyright__ = '(C) 2022 by FALASY  Anamelechi'
 
 __revision__ = '$Format:%H$'
 
-import os
+import processing
+import os, math
 import inspect
+import time
+import qgis.utils
+import numpy as np
+
+from qgis.gui import *
+from PyQt5 import QtWidgets
+from collections import Counter
 from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtCore import QCoreApplication, QVariant
 
 from qgis.core import QgsProcessing
 from qgis.core import QgsProcessingAlgorithm
 from qgis.core import QgsProcessingMultiStepFeedback
 from qgis.core import QgsProcessingParameterRasterLayer
+from qgis.core import QgsProcessingParameterFolderDestination
+from qgis.core import QgsProcessingParameterFileDestination
+from qgis.core import QgsProcessingParameterVectorDestination
+from qgis.core import QgsProcessingParameterExtent
+from qgis.core import QgsProcessingParameterEnum
+from qgis.core import QgsProcessingParameterRasterLayer
 from qgis.core import QgsProcessingParameterFeatureSource
 from qgis.core import QgsProcessingParameterFeatureSink
-from qgis.core import QgsProcessingParameterFolderDestination
 from qgis.core import QgsProcessingParameterBoolean
 from qgis.core import QgsProcessingParameterVectorLayer
 from qgis.core import QgsProcessingParameterNumber
-from qgis.core import QgsProcessingParameterEnum
+from qgis.core import QgsProcessingParameterPoint
 from qgis.core import QgsProcessingParameterField
+from qgis.core import QgsProcessingParameterCrs
 from qgis.core import QgsCoordinateReferenceSystem
-from qgis.core import QgsProcessingParameterFileDestination
-from qgis.core import QgsProcessingParameterVectorDestination
+from qgis.core import QgsFeatureSink
+from qgis.core import QgsFeatureRequest
+from qgis.core import QgsVectorLayer
+from qgis.core import QgsLineSymbol
+from qgis.core import QgsProperty
+from qgis.core import QgsProcessingLayerPostProcessorInterface
 
-import processing
 
-from PyQt5 import QtWidgets
-from qgis.PyQt.QtCore import QCoreApplication, QVariant
-
-from qgis.core import *
-from collections import Counter
-import time
-import numpy as np
+from qgis.core import (edit,QgsField, QgsFeature, QgsPointXY, QgsWkbTypes, QgsGeometry, QgsFields)
 
 class ElevationAlgorithm(QgsProcessingAlgorithm):            
         
@@ -69,7 +81,7 @@ class ElevationAlgorithm(QgsProcessingAlgorithm):
         return ElevationAlgorithm()
         
     def name(self):
-        return 'k. Network Elevation Exports'
+        return 'l. Network Elevation Exports'
 
     def displayName(self):
         return self.tr(self.name())
@@ -89,7 +101,7 @@ class ElevationAlgorithm(QgsProcessingAlgorithm):
         return self.tr("""This Tool generates elevation points for each line segment of the Tile Network.
         
         Workflow: 
-        1. Select a DEM Layer and a Line Layer. This is a follow-up from "Routine J"
+        1. Select a DEM Layer and a Line Layer. This is a follow-up from "Routine K"
         2. Select a reference field for generating the elevation points from
         3. Save the output files (optional)
         4. Click on \"Run\"
@@ -105,7 +117,7 @@ class ElevationAlgorithm(QgsProcessingAlgorithm):
     
     def initAlgorithm(self, config=None):        
         self.addParameter(QgsProcessingParameterRasterLayer('MDFT', 'Field DEM',  defaultValue=None))        
-        self.addParameter(QgsProcessingParameterVectorLayer('LineSegmentLayer', 'Tile Network Lines', types=[QgsProcessing.TypeVectorLine], defaultValue=None))
+        self.addParameter(QgsProcessingParameterVectorLayer('LineSegmentLayer', 'Tile Lines: from Cummulative Flow Lengths', types=[QgsProcessing.TypeVectorLine], defaultValue=None))
         self.addParameter(QgsProcessingParameterField('FGHTY', 'Field to Calculate [Tile_ID]', parentLayerParameterName = 'LineSegmentLayer', type = QgsProcessingParameterField.Any,)) 
         self.addParameter(QgsProcessingParameterFeatureSink('FinalFields', 'Final Reference Fields', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))       
         self.addParameter(QgsProcessingParameterVectorDestination('TerrainProfiles', 'Network Elevation Points', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))
@@ -117,41 +129,66 @@ class ElevationAlgorithm(QgsProcessingAlgorithm):
         # overall progress through the model    
         feedback = QgsProcessingMultiStepFeedback(4, model_feedback)
         results = {}
-        outputs = {}
-                                       
+        outputs = {}                                       
         
         # Final Retained Fields of Interest
-        alg_params = {"INPUT": parameters['LineSegmentLayer'], "FIELDS": ['Tile_ID', 'Tile_TO', 'Elev_First', 'Elev_Last', 'True_Length', 'Abs_Slope', 'FLOW_LINE', 'TILE_FLOW', 'FLOW_ORDER', 'Tile_ORDER'], "OUTPUT": parameters['FinalFields']}
-                    
-        outputs['RetainFields'] = processing.run('native:retainfields', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #1
-
+        retained_params = {"INPUT": parameters['LineSegmentLayer'], "FIELDS": ['Tile_ID', 'Tile_TO', 'Elev_First', 'Elev_Last', 'LENGTH', 'FLOW_LENGTH', 'Abs_Slope', 'FLOW_LINE', 'TILE_FLOW', 'FLOW_ORDER', 'Tile_ORDER'], "OUTPUT": parameters['FinalFields']}                   
+        
         feedback.setCurrentStep(1)
         if feedback.isCanceled():
             return {}
         
+        outputs['RetainFields'] = processing.run('native:retainfields', retained_params, context=context, feedback=feedback, is_child_algorithm=True) #1
+        results['RetainFields'] = outputs['RetainFields']['OUTPUT']
+        
         # Line Terrain Profiles
-        alg_params = {'DEM': parameters['MDFT'], 'LINES': outputs['RetainFields']['OUTPUT'], 'NAME': parameters['FGHTY'], 'PROFILE': QgsProcessing.TEMPORARY_OUTPUT}
-                
-        outputs['ProfilesFromLines'] = processing.run('saga:profilesfromlines', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #2
-
+        line_params = {'DEM': parameters['MDFT'], 'LINES': results['RetainFields'], 'NAME': parameters['FGHTY'], 'PROFILE': QgsProcessing.TEMPORARY_OUTPUT}
+                        
         feedback.setCurrentStep(2)
         if feedback.isCanceled():
             return {}
 
-        # Rename Field Name        
-        alg_params = {'INPUT': outputs['ProfilesFromLines']['PROFILE'], 'FIELD': 'Z', 'NEW_NAME': 'SURF_ELEV', 'OUTPUT': parameters['TerrainProfiles']}
+        outputs['ProfilesFromLines'] = processing.run('saga:profilesfromlines', line_params, context=context, feedback=feedback, is_child_algorithm=True) #2
+        results['ProfilesFromLines'] = outputs['ProfilesFromLines']['PROFILE']
         
-        outputs['RenameTableField'] = processing.run('qgis:renametablefield', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #3                  
-
+        # Rename Field Name        
+        rename_params = {'INPUT': results['ProfilesFromLines'], 'FIELD': 'Z', 'NEW_NAME': 'SURF_ELEV', 'OUTPUT': parameters['TerrainProfiles']}
+        
         feedback.setCurrentStep(3)
         if feedback.isCanceled():
-            return {}     
+            return {}
+            
+        outputs['RenameTableField'] = processing.run('qgis:renametablefield', rename_params, context=context, feedback=feedback, is_child_algorithm=True) #3
+        results['RenameTableField'] = outputs['RenameTableField']['OUTPUT']             
                
         # Split and Save as CSV Files
-        alg_params = {'INPUT': outputs['RenameTableField']['OUTPUT'], 'FIELD': 'LINE_ID', "FILE_TYPE": 4, 'OUTPUT': parameters['Splitty']}          
+        split_params = {'INPUT': results['RenameTableField'], 'FIELD': 'LINE_ID', "FILE_TYPE": 4, 'OUTPUT': parameters['Splitty']}          
                                               
-        outputs['SplitToCSV'] = processing.run('qgis:splitvectorlayer', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #4 
-                        
-        results['Splitty'] = outputs['SplitToCSV']['OUTPUT']
+        feedback.setCurrentStep(4)
+        if feedback.isCanceled():
+            return {}        
+        
+        outputs['SplitToCSV'] = processing.run('qgis:splitvectorlayer', split_params, context=context, feedback=feedback, is_child_algorithm=True) #4
+        results['SplitToCSV'] = outputs['SplitToCSV']['OUTPUT']  
+
+        if context.willLoadLayerOnCompletion(results['RetainFields']):
+            context.layerToLoadOnCompletionDetails(results['RetainFields']).setPostProcessor(LinePostProcessor.create())
+        
         return results          
     
+class LinePostProcessor(QgsProcessingLayerPostProcessorInterface):
+
+    instance = None
+
+    def postProcessLayer(self, layer, context, feedback):
+        if not isinstance(layer, QgsVectorLayer):
+            return
+        renderer = layer.renderer().clone()
+        symbol = QgsLineSymbol.createSimple({'line_color': '0,0,0,255', 'line_width': '0.66', 'line_style': 'solid'})
+        renderer.setSymbol(symbol)
+        layer.setRenderer(renderer)
+
+    @staticmethod
+    def create() -> 'LinePostProcessor':
+        LinePostProcessor.instance = LinePostProcessor()
+        return LinePostProcessor.instance

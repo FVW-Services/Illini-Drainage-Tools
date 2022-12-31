@@ -34,8 +34,6 @@ from qgis.core import QgsProcessingProvider
 from .lidar_thinning_analysis_algorithm import LidarThinningAnalysisAlgorithm
 from .plotting_field_laylines_algorithm import PlottingFieldLaylinesAlgorithm
 from .line_grid_algorithm import LineGridAlgorithm
-from .single_main_fix_algorithm import SingleMainFixAlgorithm
-from .multiple_mains_fix_algorithm import MultipleMainsFixAlgorithm
 from .complex_mains_fix_algorithm import ComplexMainsFixAlgorithm
 from .fix_line_topology_algorithm import FixLineTopologyAlgorithm
 from .network_generator_algorithm import NetworkGeneratorAlgorithm
@@ -47,6 +45,7 @@ from .elevation_algorithm import ElevationAlgorithm
 from .benefits_algorithm import BenefitsAlgorithm
 from .readout_algorithm import ReadoutAlgorithm
 from .bury_algorithm import BuryAlgorithm
+from .flow_lengths_algorithm import FlowLengthsAlgorithm
 
 
 #from .lines_terrain_profile_algorithm import LinesTerrainProfileAlgorithm
@@ -80,9 +79,7 @@ class IlliniDrainageToolsProvider(QgsProcessingProvider):
         """
         self.addAlgorithm(LidarThinningAnalysisAlgorithm())
         self.addAlgorithm(PlottingFieldLaylinesAlgorithm())
-        self.addAlgorithm(LineGridAlgorithm())
-        self.addAlgorithm(SingleMainFixAlgorithm())
-        self.addAlgorithm(MultipleMainsFixAlgorithm())
+        self.addAlgorithm(LineGridAlgorithm())        
         self.addAlgorithm(ComplexMainsFixAlgorithm())
         self.addAlgorithm(FixLineTopologyAlgorithm())                
         self.addAlgorithm(NetworkGeneratorAlgorithm())        
@@ -90,6 +87,7 @@ class IlliniDrainageToolsProvider(QgsProcessingProvider):
         self.addAlgorithm(FlowAlgorithm())
         self.addAlgorithm(OrderingAlgorithm())
         self.addAlgorithm(CoordinatesAlgorithm())
+        self.addAlgorithm(FlowLengthsAlgorithm())
         self.addAlgorithm(ElevationAlgorithm())        
         self.addAlgorithm(BuryAlgorithm())
         self.addAlgorithm(ReadoutAlgorithm())

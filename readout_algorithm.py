@@ -65,7 +65,7 @@ class ReadoutAlgorithm(QgsProcessingAlgorithm):
         return ReadoutAlgorithm()
         
     def name(self):
-        return 'm. Tile Spreadsheet ReadOut'
+        return 'n. Tile Spreadsheet ReadOut'
 
     def displayName(self):
         return self.tr(self.name())
@@ -85,7 +85,7 @@ class ReadoutAlgorithm(QgsProcessingAlgorithm):
         return self.tr("""This Tool splits a vector line layer according to its unique line id and also exports them seperately to a spreadsheet readouts.
         
         Workflow: 
-        1. Select a Shapefile Layer. This is a follow-up from "Routine L"
+        1. Select a Shapefile Layer. This is a follow-up from "Routine M"
         2. Save the output folder (optional)
         3. Click on \"Run\"
         
@@ -100,7 +100,7 @@ class ReadoutAlgorithm(QgsProcessingAlgorithm):
     
     def initAlgorithm(self, config=None):        
         
-        self.addParameter(QgsProcessingParameterVectorLayer('VectorLineLayer', 'Input Vector Layer', types=[QgsProcessing.TypeVectorAnyGeometry], defaultValue=None))           
+        self.addParameter(QgsProcessingParameterVectorLayer('VectorLineLayer', 'Input Vector Layer with Unique Line ID', types=[QgsProcessing.TypeVectorAnyGeometry], defaultValue=None))           
         self.addParameter(QgsProcessingParameterFolderDestination('Splitty', 'Tile Spreadsheet ReadOut', createByDefault=True, defaultValue=None))
                        
     def processAlgorithm(self, parameters, context, model_feedback):

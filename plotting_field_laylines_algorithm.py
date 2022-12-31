@@ -30,30 +30,53 @@ __copyright__ = '(C) 2022 by FALASY  Anamelechi'
 
 __revision__ = '$Format:%H$'
 
+import processing
 import os, math
 import inspect
+import time
+import qgis.utils
+import numpy as np
+
+from qgis.gui import *
+from osgeo import gdal
+from PyQt5 import QtWidgets
+from osgeo import gdalnumeric
+from collections import Counter
 from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtCore import QCoreApplication, QVariant, QObject
+from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
+from qgis.analysis import QgsRasterCalculator, QgsRasterCalculatorEntry
 
 from qgis.core import QgsProcessing
 from qgis.core import QgsProcessingAlgorithm
 from qgis.core import QgsProcessingMultiStepFeedback
+from qgis.core import QgsProcessingParameterRasterLayer
+from qgis.core import QgsProcessingParameterFolderDestination
+from qgis.core import QgsProcessingParameterFileDestination
+from qgis.core import QgsProcessingParameterVectorDestination
+from qgis.core import QgsProcessingParameterExtent
+from qgis.core import QgsProcessingParameterEnum
 from qgis.core import QgsProcessingParameterRasterLayer
 from qgis.core import QgsProcessingParameterFeatureSource
 from qgis.core import QgsProcessingParameterFeatureSink
 from qgis.core import QgsProcessingParameterBoolean
 from qgis.core import QgsProcessingParameterVectorLayer
 from qgis.core import QgsProcessingParameterNumber
+from qgis.core import QgsProcessingParameterPoint
 from qgis.core import QgsProcessingParameterField
+from qgis.core import QgsProcessingParameterCrs
+from qgis.core import QgsCoordinateReferenceSystem
+from qgis.core import QgsFeatureSink
+from qgis.core import QgsFeatureRequest
+from qgis.core import QgsVectorLayer
+from qgis.core import QgsLineSymbol
+from qgis.core import QgsProperty
+from qgis.core import QgsProcessingParameterString
+from qgis.core import QgsProcessingLayerPostProcessorInterface
+from qgis.core import QgsProcessingParameterRasterDestination
 
-import processing
+from qgis.core import (edit,QgsField, QgsFeature, QgsPointXY, QgsWkbTypes, QgsGeometry, QgsFields)
 
-from PyQt5 import QtWidgets
-from qgis.PyQt.QtCore import QCoreApplication, QVariant
-
-from qgis.core import *
-from collections import Counter
-import time
-import numpy as np
 
 class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
     
@@ -89,7 +112,7 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         3. Save the output files (optional)        
         4. Click on \"Run\"              
                 
-        The script will give out three outputs.       
+        The script will give out four outputs.       
                 
         The help link in the Graphical User Interface (GUI) provides more information about the plugin.
         """)   
@@ -102,80 +125,148 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         
         self.addParameter(QgsProcessingParameterRasterLayer('MDT', 'Field LiDAR DEM', defaultValue=None))
         self.addParameter(QgsProcessingParameterVectorLayer('VectorPolygonLayer', 'Field Boundary', types=[QgsProcessing.TypeVectorPolygon], defaultValue=None))
-        self.addParameter(QgsProcessingParameterNumber('ContourInterval', 'Contour Line Interval (ft)', type=QgsProcessingParameterNumber.Double, maxValue=100.0, defaultValue=1))      
+        
+        #self.addParameter(QgsProcessingParameterCrs('CRS', 'Targeted CRS', defaultValue='EPSG:3435')) 
+        
+        self.addParameter(QgsProcessingParameterNumber('ContourInterval', 'Contour Line Interval (ft)', type=QgsProcessingParameterNumber.Double, maxValue=100.0, defaultValue=1))
+        self.addParameter(QgsProcessingParameterNumber('RasterDepth', 'Raster Depth Difference (ft)', type=QgsProcessingParameterNumber.Double, maxValue=100.0, defaultValue=1))
+        
         self.addParameter(QgsProcessingParameterFeatureSink('UnfilledDEM', 'Unfilled Laylines', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))
         self.addParameter(QgsProcessingParameterFeatureSink('FilledContour', 'Filled Contour Lines', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))
-        self.addParameter(QgsProcessingParameterFeatureSink('FilledDEM', 'Filled Laylines', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))            
+        self.addParameter(QgsProcessingParameterFeatureSink('FilledDEM', 'Filled Laylines', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))
+        self.addParameter(QgsProcessingParameterRasterDestination('DeRaster', 'Identified Depression Areas', createByDefault=True, defaultValue=None))
         
     def processAlgorithm(self, parameters, context, model_feedback):
         # Use a multi-step feedback, so that individual child algorithm progress reports are adjusted for the
         # overall progress through the model
         
-        feedback = QgsProcessingMultiStepFeedback(5, model_feedback)
+        feedback = QgsProcessingMultiStepFeedback(7, model_feedback)
         results = {}
-        outputs = {}                       
+        outputs = {}                   
+                                  
+        # Buffer the Boundary Plot  
+        alg_params = {'INPUT': parameters['VectorPolygonLayer'], 'DISTANCE':20, 'SEGMENTS':5, 'END_CAP_STYLE':0, 'JOIN_STYLE:':0, 'MITER_LIMIT':2, 'DISSOLVE':False, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
         
-        # Check if vector line layer 'VectorPointLayer' is in geogrephic coordinates
-        vector_layer = self.parameterAsVectorLayer(parameters, 'VectorPolygonLayer', context)
-        if vector_layer.crs().isGeographic():
-
-            w = QtWidgets.QWidget()
-            b = QtWidgets.QLabel(w)
-            w.setGeometry(400,400,800,20)
-            w.setWindowTitle("Attention: vector point layers in geographic coordinates are not allowed! Ending plugin without slope calculation...")
-            w.show()
-            time.sleep(10)
-            return results
-       
-            
-        # Clip Raster DEM Layer Out  
-        alg_params = {'INPUT': parameters['MDT'], 'MASK': parameters['VectorPolygonLayer'], 'CROP_TO_CUTLINE': True, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT} 
-        
-        outputs['ClipRasterbyMaskLayer'] = processing.run('gdal:cliprasterbymasklayer', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #1
-
         feedback.setCurrentStep(1)
         if feedback.isCanceled():
             return {}
-            
-            
-        # Find Channel Network from Terrain Analysis (unfilled DEM)
-        alg_params = {'ELEVATION': outputs['ClipRasterbyMaskLayer']['OUTPUT'], 'INIT_GRID': outputs['ClipRasterbyMaskLayer']['OUTPUT'], 'INIT_METHOD': 2, 'INIT_VALUE': 0, 'DIV_CELLS': 10, 'MINLEN': 10,
-                                    'CHNLNTWRK': QgsProcessing.TEMPORARY_OUTPUT, 'CHNLROUTE': QgsProcessing.TEMPORARY_OUTPUT, 'SHAPES': parameters['UnfilledDEM']}
         
-        outputs['ChannelNetwork'] = processing.run('saga:channelnetwork', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #2
-
+        outputs['VectorBuffer'] = processing.run('native:buffer', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #1
+        results['VectorBuffer'] = outputs['VectorBuffer']['OUTPUT']
+            
+        # Clip Raster DEM Layer Out  
+        alg_params = {'INPUT': parameters['MDT'], 'MASK': results['VectorBuffer'], 'CROP_TO_CUTLINE': True, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT} 
+                              
         feedback.setCurrentStep(2)
         if feedback.isCanceled():
             return {}
             
-            
-        # Fill DEM Sinks               
-        alg_params = {'DEM': outputs['ClipRasterbyMaskLayer']['OUTPUT'], 'MINSLOPE': 0.01, 'RESULT': QgsProcessing.TEMPORARY_OUTPUT}
+        outputs['ClipRasterbyMaskLayer'] = processing.run('gdal:cliprasterbymasklayer', alg_params, context=context, feedback=feedback, is_child_algorithm=True)#2     
+        results['ClipRasterbyMaskLayer'] = outputs['ClipRasterbyMaskLayer']['OUTPUT']
         
-        outputs['FillSinks'] = processing.run('saga:fillsinks', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #3        
-        
+        # Find Channel Network from Terrain Analysis (unfilled DEM)
+        alg_params = {'ELEVATION': results['ClipRasterbyMaskLayer'], 'INIT_GRID': outputs['ClipRasterbyMaskLayer']['OUTPUT'], 'INIT_METHOD': 2, 'INIT_VALUE': 0, 'DIV_CELLS': 10, 'MINLEN': 10,
+                                    'CHNLNTWRK': QgsProcessing.TEMPORARY_OUTPUT, 'CHNLROUTE': QgsProcessing.TEMPORARY_OUTPUT, 'SHAPES': parameters['UnfilledDEM']}
+                
         feedback.setCurrentStep(3)
         if feedback.isCanceled():
             return {}
             
-            
-        # Find Field Contour               
-        alg_params = {'INPUT': outputs['FillSinks']['RESULT'], 'BAND': 1, 'INTERVAL': parameters['ContourInterval'], 'FIELD_NAME': 'ELEV', 'OUTPUT': parameters['FilledContour']}
+        outputs['ChannelNetwork'] = processing.run('saga:channelnetwork', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #3
+        results['ChannelNetwork'] = outputs['ChannelNetwork']['SHAPES']
+    
         
-        outputs['Contour'] = processing.run('gdal:contour', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #4   
-                       
+        # Fill DEM Sinks               
+        alg_params = {'DEM': results['ClipRasterbyMaskLayer'], 'MINSLOPE': 0.03, 'RESULT': QgsProcessing.TEMPORARY_OUTPUT}
+        
         feedback.setCurrentStep(4)
         if feedback.isCanceled():
-            return {}            
-            
+            return {} 
         
+        outputs['FillSinks'] = processing.run('saga:fillsinks', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #4        
+        results['FillSinks'] = outputs['FillSinks']['RESULT']      
+                                                              
+        # Find Field Contour               
+        alg_params = {'INPUT': results['FillSinks'], 'BAND': 1, 'INTERVAL': parameters['ContourInterval'], 'FIELD_NAME': 'ELEV', 'OUTPUT': parameters['FilledContour']}
+        
+        feedback.setCurrentStep(5)
+        if feedback.isCanceled():
+            return {} 
+            
+        outputs['Contour'] = processing.run('gdal:contour', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #5
+        results['Contour'] = outputs['Contour']['OUTPUT']                              
+                                       
         # Find Channel Network from Terrain Analysis (filled DEM)
         alg_params = {'ELEVATION': outputs['FillSinks']['RESULT'], 'INIT_GRID': outputs['FillSinks']['RESULT'], 'INIT_METHOD': 2, 'INIT_VALUE': 0, 'DIV_CELLS': 10, 'MINLEN': 10,
                                     'CHNLNTWRK': QgsProcessing.TEMPORARY_OUTPUT, 'CHNLROUTE': QgsProcessing.TEMPORARY_OUTPUT, 'SHAPES': parameters['FilledDEM']}
+                
+        feedback.setCurrentStep(6)
+        if feedback.isCanceled():
+            return {}
         
-        outputs['ChannelNetwork2'] = processing.run('saga:channelnetwork', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #5               
+        outputs['ChannelNetwork2'] = processing.run('saga:channelnetwork', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #6
+        results['ChannelNetwork2'] = outputs['ChannelNetwork2']['SHAPES']
         
-        results['FilledDEM'] = outputs['ChannelNetwork2']['SHAPES']
-        return results
+        ## Raster Calculator
+        A = outputs['ClipRasterbyMaskLayer']['OUTPUT']#2
+        B = outputs['FillSinks']['RESULT'] #6              
+        
+        alg_params = {
+        'INPUT_A': results['FillSinks'], 
+        'BAND_A': 1, 
+        'INPUT_B': results['ClipRasterbyMaskLayer'],              
+        'FORMULA': "B-A>parameters['RasterDepth']",
+        'NO_DATA': None,        
+        'RTYPE': 5, 
+        'OUTPUT': parameters['DeRaster']
+        }       
+        
+        feedback.setCurrentStep(7)
+        if feedback.isCanceled():
+            return {}
+        
+        outputs['RasterCalculator'] = processing.run('gdal:rastercalculator', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #7
+        results['RasterCalculator'] = outputs['RasterCalculator']['OUTPUT']
+        
+        if context.willLoadLayerOnCompletion(results['Contour']):
+            context.layerToLoadOnCompletionDetails(results['Contour']).setPostProcessor(GridPostProcessor.create())
 
-    
+        if context.willLoadLayerOnCompletion(results['ChannelNetwork2']):
+            context.layerToLoadOnCompletionDetails(results['ChannelNetwork2']).setPostProcessor(LinePostProcessor.create())
+        
+        return results             
+
+class GridPostProcessor(QgsProcessingLayerPostProcessorInterface):
+
+    instance = None
+
+    def postProcessLayer(self, layer, context, feedback):
+        if not isinstance(layer, QgsVectorLayer):
+            return
+        renderer = layer.renderer().clone()
+        symbol = QgsLineSymbol.createSimple({'line_color': '251,247,4,255', 'line_width': '0.45', 'line_style': 'solid'})
+        renderer.setSymbol(symbol)
+        layer.setRenderer(renderer)
+
+    @staticmethod
+    def create() -> 'GridPostProcessor':
+        GridPostProcessor.instance = GridPostProcessor()
+        return GridPostProcessor.instance
+
+
+class LinePostProcessor(QgsProcessingLayerPostProcessorInterface):
+
+    instance = None
+
+    def postProcessLayer(self, layer, context, feedback):
+        if not isinstance(layer, QgsVectorLayer):
+            return
+        renderer = layer.renderer().clone()
+        symbol = QgsLineSymbol.createSimple({'line_color': '14,186,238,253', 'line_width': '0.66', 'line_style': 'solid'})
+        renderer.setSymbol(symbol)
+        layer.setRenderer(renderer)
+
+    @staticmethod
+    def create() -> 'LinePostProcessor':
+        LinePostProcessor.instance = LinePostProcessor()
+        return LinePostProcessor.instance

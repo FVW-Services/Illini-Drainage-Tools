@@ -45,7 +45,8 @@ from qgis.core import QgsProcessingParameterBoolean
 from qgis.core import QgsProcessingParameterVectorLayer
 from qgis.core import QgsProcessingParameterNumber
 from qgis.core import QgsProcessingParameterField
-from qgis.core import QgsCoordinateReferenceSystem
+from qgis.core import QgsProcessingParameterCrs
+
 
 import processing
 
@@ -61,7 +62,7 @@ class CoordinatesAlgorithm(QgsProcessingAlgorithm):
              
     def initAlgorithm(self, config=None):        
         self.addParameter(QgsProcessingParameterRasterLayer('MDT', 'Field DEM', defaultValue=None))                
-        self.addParameter(QgsProcessingParameterVectorLayer('VectorLineLayer', 'Tile Network Lines', types=[QgsProcessing.TypeVectorAnyGeometry], defaultValue=None))
+        self.addParameter(QgsProcessingParameterVectorLayer('VectorLineLayer', 'Input Vector Layer', types=[QgsProcessing.TypeVectorAnyGeometry], defaultValue=None))
         
         self.addParameter(QgsProcessingParameterCrs('CRS', 'Targeted CRS', defaultValue='EPSG:3435')) 
         

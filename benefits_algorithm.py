@@ -89,7 +89,7 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
         return BenefitsAlgorithm()
         
     def name(self):        
-        return 'n. Network Pipe Sizing'
+        return 'o. Network Pipe Sizing'
 
     def displayName(self):        
         return self.tr(self.name())
@@ -109,7 +109,7 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
         return self.tr( """This tool is used to determine final pipe sizes for the individual tile networks. 
         
         Workflow:         
-        1. Select a vector layer of line segments. This is a follow-up from "Routine K"
+        1. Select a vector layer of line segments. This is a follow-up from "Routine L"
         2. Select the respective Field IDs that represents the attribute tables from the displayed line layer
         3. Specify Type of Pipe Material
         4. Specify or Assign Drainage Intensity [DI]
@@ -138,13 +138,13 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(parameter)
         
     def initAlgorithm(self, config):
-        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER, self.tr('Tile Network: with Reference IDs'), [QgsProcessing.TypeVectorLine], defaultValue=None))               
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER, self.tr('Tile Network: with Retained Reference Fields'), [QgsProcessing.TypeVectorLine], defaultValue=None))               
         
         self.addParameter(QgsProcessingParameterField(self.SEGMENT_KEY, self.tr("Line Segments [TILE_ID]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None)) 
         self.addParameter(QgsProcessingParameterField(self.TILE_TO_KEY, self.tr("System Flow [TILE_TO]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
         self.addParameter(QgsProcessingParameterField(self.ORDER_KEY, self.tr("Strahler Orders [TILE_ORDER]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
 
-        self.addParameter(QgsProcessingParameterField(self.LENGTH_KEY, self.tr("Segments Length [True_LENGTH]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))               
+        self.addParameter(QgsProcessingParameterField(self.LENGTH_KEY, self.tr("Cummulative Segment Lengths [FLOW_LENGTH]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))               
         self.addParameter(QgsProcessingParameterField(self.SLOPE_KEY, self.tr("Segments Slope [Abs_SLOPE]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
         
         self.addParameter(QgsProcessingParameterNumber(self.SPACING_KEY, self.tr('Specify Drain Spacing [ft]'), type=QgsProcessingParameterNumber.Double, maxValue=200.0, defaultValue=100.0))
@@ -176,20 +176,24 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
         if ptype == 0:  # single wall
             if psize <= 8:
                 return 0.015
+            if psize > 8:
+                return 0.017
+            if psize > 12:
+                return 0.02
             if psize <= 12:
                 return 0.017
             return 0.02
         if ptype == 1:  # smooth Wall
-            return 0.011
+            return 0.012
         if ptype == 2:  # clay or concrete
             return 0.013
         raise ValueError(f"Unexpected ptype value {ptype}")  # throw error if does not fit into any category
     
     def formula(self, flow, nn, slp):
-        return (flow * nn * 4**(5/3) / (1.49 * 3.142 * slp**0.5))**(3/8)
+        return ((flow * nn * 4**(5/3)) / (1.49 * 3.142 * slp**0.5))**(3/8)
 
     def inverse_formula(self, d, nn, slp):
-        return 1.49 * 3.142 * slp**0.5 / (nn * 4**(5/3)) * d**(8/3)
+        return (1.49 * 3.142 * slp**0.5) / (nn * 4**(5/3)) * d**(8/3)
 
     def getPipeSize(self, flow, slope, ptype):
         if ptype == 1:  # single wall pipe
@@ -199,8 +203,9 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
                 nn = self.roughness(ptype, k)
                 d = self.formula(flow, nn, slope)
                 psize = d * 12
-                nn = self.roughness(ptype, d)
-                flow1 = self.inverse_formula(d, nn, slope)
+                d2 = psize / 12
+                nn = self.roughness(ptype, d2)
+                flow1 = self.inverse_formula(d2, nn, slope)
                 if abs(flow - flow1) <= 0.001:
                     return psize
         else:  # other cases

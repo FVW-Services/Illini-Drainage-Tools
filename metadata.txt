@@ -11,7 +11,7 @@
 name=Illini Drainage Tools
 qgisMinimumVersion=3.0
 description=Performs Specific Draiange Related Tasks and Analysis on a Site using a LiDAR DEM data.
-version=2.4
+version=2.6
 author=FALASY Anamelechi
 email=fvw.services@gmail.com
 

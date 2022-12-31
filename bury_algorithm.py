@@ -82,7 +82,7 @@ class BuryAlgorithm(QgsProcessingAlgorithm):
         return BuryAlgorithm()
         
     def name(self):        
-        return 'l. Tile Burying System'
+        return 'm. Tile Burying System'
 
     def displayName(self):        
         return self.tr(self.name())
@@ -102,7 +102,7 @@ class BuryAlgorithm(QgsProcessingAlgorithm):
         return self.tr( """This tool is used to determine the elevation depths for burying the entire tile networks. 
         
         Workflow:         
-        1. Select a vector layer of elevation point. This is a follow-up from "Routine K"
+        1. Select a vector layer of elevation point. This is a follow-up from "Routine L"
         2. Specify the respective burying parameters
         3. Make a decision based on the field terrain using the Constant Slope Option 
         4. Save the output file (optional)        

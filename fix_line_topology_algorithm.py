@@ -64,7 +64,7 @@ class FixLineTopologyAlgorithm(QgsProcessingAlgorithm):
         return FixLineTopologyAlgorithm()
                 
     def name(self):
-        return 'f. Tile Network Connectivity'
+        return 'f. Tile Node Connectivity'
 
     def displayName(self):
         return self.tr(self.name())
@@ -84,7 +84,7 @@ class FixLineTopologyAlgorithm(QgsProcessingAlgorithm):
         return self.tr( """This tool is used to clean up a line layer to have a topological connected geometry for building tile networks. 
         
         Workflow:         
-        1. Select a vector Line layer. This is a follow-up from either "Routine e1" or "Routine e2"
+        1. Select a vector Line layer. This is a follow-up from "Routine E"
         2. Select the Field IDs ("Vertex Part Index" and "Group Vertex part") that represents the line segments to be corrected
         3. Save the output file (optional)        
         4. Click on \"Run\"               
@@ -100,7 +100,7 @@ class FixLineTopologyAlgorithm(QgsProcessingAlgorithm):
     
     def initAlgorithm(self, config=None):
         
-        self.addParameter(QgsProcessingParameterVectorLayer('VectorPointLayer', 'Snapped Line Geometry', types=[QgsProcessing.TypeVectorPoint], defaultValue=None))
+        self.addParameter(QgsProcessingParameterVectorLayer('VectorPointLayer', 'New Line Nodes', types=[QgsProcessing.TypeVectorPoint], defaultValue=None))
         self.addParameter(QgsProcessingParameterFeatureSink('LineFixes', 'Fixed Line Topology', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))        
         self.addParameter(QgsProcessingParameterField('FAGH', 'Vertex Part Index', parentLayerParameterName = 'VectorPointLayer', type = QgsProcessingParameterField.Any)) 
         self.addParameter(QgsProcessingParameterField('FGH', 'Group Vertex Part', parentLayerParameterName = 'VectorPointLayer', type = QgsProcessingParameterField.Any))         
@@ -110,7 +110,7 @@ class FixLineTopologyAlgorithm(QgsProcessingAlgorithm):
         # Use a multi-step feedback, so that individual child algorithm progress reports are adjusted for the
         # overall progress through the model
         
-        feedback = QgsProcessingMultiStepFeedback(6, model_feedback)
+        feedback = QgsProcessingMultiStepFeedback(8, model_feedback)
         results = {}
         outputs = {}
                         
@@ -154,24 +154,39 @@ class FixLineTopologyAlgorithm(QgsProcessingAlgorithm):
         if feedback.isCanceled():
             return {}
             
-        # Remove Null Geometries               
-        alg_params = {'INPUT': outputs['ExportAddGeometryColumns']['OUTPUT'], 'REMOVE_EMPTY': True, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
+        # Explode Line Segments               
+        alg_params = {'INPUT': outputs['ExportAddGeometryColumns']['OUTPUT'], 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}        
         
-        outputs['RemoveNullGeometries'] = processing.run('native:removenullgeometries', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #4   
-                       
+        outputs['ExplodeLines'] = processing.run('native:explodelines', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #4  
+                
         feedback.setCurrentStep(4)
         if feedback.isCanceled():
             return {}
-                    
-        # Explode Line Segments               
-        alg_params = {'INPUT': outputs['RemoveNullGeometries']['OUTPUT'], 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}        
+            
+        # Remove Null Geometries               
+        alg_params = {'INPUT': outputs['ExplodeLines']['OUTPUT'], 'REMOVE_EMPTY': True, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
         
-        outputs['ExplodeLines'] = processing.run('native:explodelines', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #5  
-                
+        outputs['RemoveNullGeometries'] = processing.run('native:removenullgeometries', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #5   
+                       
         feedback.setCurrentStep(5)
         if feedback.isCanceled():
-            return {}
+            return {}                                  
         
+        # Validate Attribute Checks               
+        alg_params = {
+            'INPUT_LAYER': outputs['RemoveNullGeometries']['OUTPUT'], 
+            'METHOD': 2, 
+            'IGNORE_RING_SELF_INTERSECTION': False, 
+            'INVALID_OUTPUT': QgsProcessing.TEMPORARY_OUTPUT, 
+            'ERROR_OUTPUT': QgsProcessing.TEMPORARY_OUTPUT, 
+            'VALID_OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
+        }        
+        outputs['AttributeChecker'] = processing.run('qgis:checkvalidity', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #6   
+                       
+        feedback.setCurrentStep(6)
+        if feedback.isCanceled():
+            return {}                   
+               
         # Field calculator
         alg_params = {
             'FIELD_LENGTH': 10,
@@ -179,12 +194,20 @@ class FixLineTopologyAlgorithm(QgsProcessingAlgorithm):
             'FIELD_PRECISION': 0,
             'FIELD_TYPE': 1,
             'FORMULA': '$id',
-            'INPUT': outputs['ExplodeLines']['OUTPUT'],
-            'OUTPUT': parameters['LineFixes']
+            'INPUT': outputs['AttributeChecker']['VALID_OUTPUT'],
+            'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
         }
-        outputs['FieldCalculator'] = processing.run('native:fieldcalculator', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #6
-        results['LineFixes'] = outputs['FieldCalculator']['OUTPUT']
+        outputs['FieldCalculator'] = processing.run('native:fieldcalculator', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #7
         
+        feedback.setCurrentStep(7)
+        if feedback.isCanceled():
+            return {}
+                
+        # Fix Line Geometries               
+        alg_params = {'INPUT': outputs['FieldCalculator']['OUTPUT'], 'OUTPUT': parameters['LineFixes']}
+        
+        outputs['FixGeometries2'] = processing.run('native:fixgeometries', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #8
+        results['LineFixes'] = outputs['FixGeometries2']['OUTPUT']        
+                
         return results
-
     
