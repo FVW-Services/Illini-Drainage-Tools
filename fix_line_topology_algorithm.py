@@ -110,7 +110,7 @@ class FixLineTopologyAlgorithm(QgsProcessingAlgorithm):
         # Use a multi-step feedback, so that individual child algorithm progress reports are adjusted for the
         # overall progress through the model
         
-        feedback = QgsProcessingMultiStepFeedback(8, model_feedback)
+        feedback = QgsProcessingMultiStepFeedback(9, model_feedback)
         results = {}
         outputs = {}
                         
@@ -203,10 +203,19 @@ class FixLineTopologyAlgorithm(QgsProcessingAlgorithm):
         if feedback.isCanceled():
             return {}
                 
-        # Fix Line Geometries               
-        alg_params = {'INPUT': outputs['FieldCalculator']['OUTPUT'], 'OUTPUT': parameters['LineFixes']}
+         # Final Retained Fields of Interest
+        alg_params = {"INPUT": outputs['FieldCalculator']['OUTPUT'], "FIELDS": ['vertex_part', 'begin', 'end', 'ID'], "OUTPUT": QgsProcessing.TEMPORARY_OUTPUT}
         
-        outputs['FixGeometries2'] = processing.run('native:fixgeometries', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #8
+        outputs['InterestFields'] = processing.run('native:retainfields', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #8
+        
+        feedback.setCurrentStep(8)
+        if feedback.isCanceled():
+            return {}
+            
+        # Fix Line Geometries               
+        alg_params = {'INPUT': outputs['InterestFields']['OUTPUT'], 'OUTPUT': parameters['LineFixes']}
+        
+        outputs['FixGeometries2'] = processing.run('native:fixgeometries', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #9
         results['LineFixes'] = outputs['FixGeometries2']['OUTPUT']        
                 
         return results

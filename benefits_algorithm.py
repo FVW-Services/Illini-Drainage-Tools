@@ -80,7 +80,7 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
     OUTPUT = 'OUTPUT'      
     D_COEFF_KEY = 'D_COEFF'
     PIPE_SIZE_KEY = 'ACTUAL_SIZE'
-    NOMINAL_PIPE_SIZE_KEY = 'NOMINAL_SIZE'
+    NOMINAL_PIPE_SIZE_KEY = 'NOMINAL'
         
     def tr(self, string):
         return QCoreApplication.translate('Processing', string)
@@ -89,7 +89,7 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
         return BenefitsAlgorithm()
         
     def name(self):        
-        return 'o. Network Pipe Sizing'
+        return 'n. Network Pipe Sizing'
 
     def displayName(self):        
         return self.tr(self.name())
@@ -109,21 +109,25 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
         return self.tr( """This tool is used to determine final pipe sizes for the individual tile networks. 
         
         Workflow:         
-        1. Select a vector layer of line segments. This is a follow-up from "Routine L"
+        1. Select the "Buried Elevation Depths" vector layer. This is a follow-up from "Routine M"
         2. Select the respective Field IDs that represents the attribute tables from the displayed line layer
-        3. Specify Type of Pipe Material
-        4. Specify or Assign Drainage Intensity [DI]
-        5. For Advanced Settings, you can either use system assigned default settings for Drainage Coefficient [DC], or rather do the assign desired Drainage Coefficients based on either individual line segments or line orders
-        6. Save the output file (optional)        
-        7. Click on \"Run\"               
+        3. Select the burying slope to use(usually, the "InSlope"). Compare results from using the "OutSlope".
+        4. Specify The desired drain spacing for the system. This is usually the same spacing used for designing the system.
+        5. Specify Type of Pipe Material
+        6. Specify or Assign Drainage Intensity [DI]
+        7. For Advanced Settings, you can either use system assigned default settings for Drainage Coefficient [DC], or rather do the assign desired Drainage Coefficients based on either individual line segments or line orders
+        8. Save the output file (optional)        
+        9. Click on \"Run\"               
                 
         The script will give out an output. 
         
-        The script will give out an output with default name as:
         \"Drainage Intensity [DI]\" -- The rate at which an outlet system can remove water from a field. This is the Hydraulic capacity of the drainage system. 
         \"Drainage Coefficient [DC]\" -- The rate at which water can move from the soil through the drain pipes. 
         
-        Note: In a subsurface drainage system, [DC] must be "equal to" or "greater than" [DI] for optimal operation. Thus, a pipe depends mainly on the [DC]. 
+        \"Inslope\" -- This is the burying slope calculated inside the loop before the elevation buried depths are determined.
+        \"Outslope\" -- This is the burying slope calculated outside the loop after the elevation buried depths are determined.        
+        
+        Note: In a subsurface drainage system, [DC] must be "equal to" or "greater than" [DI] for optimal operation. Thus, a pipe size depends mainly on the [DC]. 
                 
         The help link in the Graphical User Interface (GUI) provides more information about the plugin.
         """)   
@@ -138,14 +142,14 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(parameter)
         
     def initAlgorithm(self, config):
-        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER, self.tr('Tile Network: with Retained Reference Fields'), [QgsProcessing.TypeVectorLine], defaultValue=None))               
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER, self.tr('Tile Network: Buried Elevation Depths'), [QgsProcessing.TypeVectorLine], defaultValue=None))               
         
-        self.addParameter(QgsProcessingParameterField(self.SEGMENT_KEY, self.tr("Line Segments [TILE_ID]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None)) 
+        self.addParameter(QgsProcessingParameterField(self.SEGMENT_KEY, self.tr("Sizing Segments [TILE_ID]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None)) 
         self.addParameter(QgsProcessingParameterField(self.TILE_TO_KEY, self.tr("System Flow [TILE_TO]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
         self.addParameter(QgsProcessingParameterField(self.ORDER_KEY, self.tr("Strahler Orders [TILE_ORDER]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
 
-        self.addParameter(QgsProcessingParameterField(self.LENGTH_KEY, self.tr("Cummulative Segment Lengths [FLOW_LENGTH]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))               
-        self.addParameter(QgsProcessingParameterField(self.SLOPE_KEY, self.tr("Segments Slope [Abs_SLOPE]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
+        self.addParameter(QgsProcessingParameterField(self.LENGTH_KEY, self.tr("Cumulative Segment Lengths [FLOW_LENGTH]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))               
+        self.addParameter(QgsProcessingParameterField(self.SLOPE_KEY, self.tr("Burying Slope [InSlope]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
         
         self.addParameter(QgsProcessingParameterNumber(self.SPACING_KEY, self.tr('Specify Drain Spacing [ft]'), type=QgsProcessingParameterNumber.Double, maxValue=200.0, defaultValue=100.0))
         
@@ -184,7 +188,7 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
                 return 0.017
             return 0.02
         if ptype == 1:  # smooth Wall
-            return 0.012
+            return 0.011
         if ptype == 2:  # clay or concrete
             return 0.013
         raise ValueError(f"Unexpected ptype value {ptype}")  # throw error if does not fit into any category
@@ -213,7 +217,7 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
             psize = self.formula(flow, nn, slope) * 12
             return psize
 
-    AVAILABLE_NOMINAL_SIZES = [4, 5, 6, 8, 10, 12, 15, 18, 21, 24, 30]  # must be sorted in ascending order
+    AVAILABLE_NOMINAL_SIZES = [4, 5, 6, 8, 10, 12, 15, 18, 21, 24, 30, 36, 42]  # must be sorted in ascending order
 
     def getNominalSize(self, psize):
         for n_size in self.AVAILABLE_NOMINAL_SIZES:
@@ -324,7 +328,22 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
                     flow_sum += get_flow_rate(source)
             flow_rates[id] = flow_sum
             return flow_sum
-
+                
+        # def get_flow_rate(id, visited=set()):
+            # if id in flow_rates:
+                # return flow_rates[id]
+            # if id in visited:
+                # # Handle cyclic dependencies
+                # return 0
+            # visited.add(id)
+            # flow_sum = individual_flow_rates[id]
+            # if id in sources_map:
+                # for source in sources_map[id]:
+                    # flow_sum += get_flow_rate(source, visited)
+            # flow_rates[id] = flow_sum
+            # visited.remove(id)
+            # return flow_sum
+        
         for (n, feature) in enumerate(raw_layer.getFeatures()):
             # Stop the algorithm if cancel button has been clicked
             if feedback.isCanceled():

@@ -61,7 +61,7 @@ import numpy as np
 class CoordinatesAlgorithm(QgsProcessingAlgorithm):           
              
     def initAlgorithm(self, config=None):        
-        self.addParameter(QgsProcessingParameterRasterLayer('MDT', 'Field DEM', defaultValue=None))                
+        self.addParameter(QgsProcessingParameterRasterLayer('MDT', 'Input Raster Layer', defaultValue=None))                
         self.addParameter(QgsProcessingParameterVectorLayer('VectorLineLayer', 'Input Vector Layer', types=[QgsProcessing.TypeVectorAnyGeometry], defaultValue=None))
         
         self.addParameter(QgsProcessingParameterCrs('CRS', 'Targeted CRS', defaultValue='EPSG:3435')) 

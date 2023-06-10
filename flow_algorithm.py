@@ -142,6 +142,8 @@ class FlowAlgorithm(QgsProcessingAlgorithm):
             out_fields.append(QgsField(field.name(), field.type()))
         out_fields.append(QgsField('FLOW_LINE', QVariant.String))
         out_fields.append(QgsField('TILE_FLOW', QVariant.String))
+        out_fields.append(QgsField('BURY_ORDER', QVariant.String))
+        out_fields.append(QgsField('SIZING_ID', QVariant.String))
                 
         '''load data from layer "raw_layer" '''
         feedback.setProgressText(self.tr("Loading network layer\n "))
@@ -182,6 +184,9 @@ class FlowAlgorithm(QgsProcessingAlgorithm):
         feedback.setProgressText(self.tr("creating output \n"))
         features = rawz_layer.getFeatures()
         
+        gghh = 1
+        fgh_main = str(gghh)
+        
         for (n, feature) in enumerate(features):
             # Stop the algorithm if cancel button has been clicked
             if feedback.isCanceled():
@@ -189,9 +194,11 @@ class FlowAlgorithm(QgsProcessingAlgorithm):
             # Add a feature in the sink
             outFt = QgsFeature(out_fields)
             outFt.setGeometry(feature.geometry())
-            outFt.setAttributes(feature.attributes() + [None] + [None])
+            outFt.setAttributes(feature.attributes() + [None] + [None] + [None] + [None])
             outFt["FLOW_LINE"] = result1[n]
             outFt["TILE_FLOW"] = total - result1.index(feature[from_field])
+            outFt["BURY_ORDER"] = total - outFt["TILE_FLOW"] + 1
+            outFt["SIZING_ID"] = total - outFt["BURY_ORDER"] + 1
             sink.addFeature(outFt, QgsFeatureSink.FastInsert)
             
             # Update the progress bar

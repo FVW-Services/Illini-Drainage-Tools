@@ -106,7 +106,7 @@ class FlowLengthsAlgorithm(QgsProcessingAlgorithm):
 
         self.addParameter(QgsProcessingParameterField(self.INPUT_FIELD_PREV, self.tr("Tile_FROM"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
                 
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Cummulative Flow Lengths')))
+        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Cumulative Flow Lengths')))
 
     def processAlgorithm(self, parameters, context, feedback):
         source = self.parameterAsSource(parameters, self.INPUT_LAYER, context)

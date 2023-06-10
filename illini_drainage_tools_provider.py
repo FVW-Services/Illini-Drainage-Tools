@@ -46,6 +46,7 @@ from .benefits_algorithm import BenefitsAlgorithm
 from .readout_algorithm import ReadoutAlgorithm
 from .bury_algorithm import BuryAlgorithm
 from .flow_lengths_algorithm import FlowLengthsAlgorithm
+from .price_estimates_algorithm import PriceEstimatesAlgorithm
 
 
 #from .lines_terrain_profile_algorithm import LinesTerrainProfileAlgorithm
@@ -91,7 +92,8 @@ class IlliniDrainageToolsProvider(QgsProcessingProvider):
         self.addAlgorithm(ElevationAlgorithm())        
         self.addAlgorithm(BuryAlgorithm())
         self.addAlgorithm(ReadoutAlgorithm())
-        self.addAlgorithm(BenefitsAlgorithm())                
+        self.addAlgorithm(BenefitsAlgorithm())
+        self.addAlgorithm(PriceEstimatesAlgorithm())                        
 
     def id(self):
         """

@@ -45,6 +45,10 @@ from qgis.core import QgsProcessingParameterVectorLayer
 from qgis.core import QgsProcessingParameterNumber
 from qgis.core import QgsProcessingParameterField
 from qgis.core import QgsProcessingParameterEnum
+from PyQt5.QtCore import QVariant
+from qgis.PyQt.QtCore import QVariant
+
+from qgis.core import QgsVectorFileWriter, QgsApplication
 
 import processing
 import processing as st
@@ -53,17 +57,20 @@ import csv
 
 from PyQt5 import QtWidgets
 from qgis.PyQt.QtCore import QCoreApplication, QVariant
+from PyQt5.QtCore import QVariant
 
 from qgis.core import *
 from collections import Counter
 import time
 import numpy as np
+#import pandas as pd
 
 class BuryAlgorithm(QgsProcessingAlgorithm):
     INPUT_LAYER = 'INPUT_LAYER'
     SEGMENT_KEY = 'SEGMENT_KEY'    
-    DIST_KEY = 'DIST_KEY'
-    SURFACE_KEY = 'SURFACE_KEY'    
+    DIST_KEY = 'DIST_KEY'    
+    FIRST_KEY = ' FIRST_KEY'
+    LAST_KEY = 'LAST_KEY'
     UPPER_KEY = 'UPPER_KEY'
     LOWER_KEY = 'LOWER_KEY'
     ABS_UPPER_KEY = 'ABS_UPPER_KEY'
@@ -102,7 +109,7 @@ class BuryAlgorithm(QgsProcessingAlgorithm):
         return self.tr( """This tool is used to determine the elevation depths for burying the entire tile networks. 
         
         Workflow:         
-        1. Select a vector layer of elevation point. This is a follow-up from "Routine L"
+        1. Select the "Retained Reference Fields" vector layer. This is a follow-up from "Routine L"
         2. Specify the respective burying parameters
         3. Make a decision based on the field terrain using the Constant Slope Option 
         4. Save the output file (optional)        
@@ -118,34 +125,36 @@ class BuryAlgorithm(QgsProcessingAlgorithm):
         
         
     def initAlgorithm(self, config):
-        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER, self.tr('Network Elevation Points'), [QgsProcessing.TypeVectorPoint], defaultValue=None))               
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER, self.tr('Tile Network: with Retained Reference Fields'), [QgsProcessing.TypeVectorPoint, QgsProcessing.TypeVectorLine], defaultValue=None)) 
+                
+        self.addParameter(QgsProcessingParameterField(self.SEGMENT_KEY, self.tr("Burying Segments [BURY_ORDER]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
+        self.addParameter(QgsProcessingParameterField(self.DIST_KEY, self.tr("Distance Between Points [LENGTH]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))       
         
-        self.addParameter(QgsProcessingParameterField(self.SEGMENT_KEY, self.tr("Line Segments [LINE_ID]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
-        self.addParameter(QgsProcessingParameterField(self.DIST_KEY, self.tr("Point Distances [DIST]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))        
-        self.addParameter(QgsProcessingParameterField(self.SURFACE_KEY, self.tr("Surface Elevation [SURF_ELEV]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))               
+        self.addParameter(QgsProcessingParameterField(self.FIRST_KEY, self.tr("Start Surface Elevation [FIRST_ELEV]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
+        self.addParameter(QgsProcessingParameterField(self.LAST_KEY, self.tr("End Surface Elevation [LAST_ELEV]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
         
         self.addParameter(QgsProcessingParameterNumber(self.UPPER_KEY, self.tr('Upper Tile Depth [ft]'), type=QgsProcessingParameterNumber.Double, maxValue=10.0, defaultValue=3.25))
-        self.addParameter(QgsProcessingParameterNumber(self.LOWER_KEY, self.tr('Lower Tile Depth [ft]'), type=QgsProcessingParameterNumber.Double, maxValue=10.0, defaultValue=3.75))
+        self.addParameter(QgsProcessingParameterNumber(self.LOWER_KEY, self.tr('Lower Tile Depth [ft]'), type=QgsProcessingParameterNumber.Double, maxValue=10.0, defaultValue=4.25))
         self.addParameter(QgsProcessingParameterNumber(self.ABS_UPPER_KEY, self.tr('Absolute Upper Tile Depth [ft]'), type=QgsProcessingParameterNumber.Double, maxValue=10.0, defaultValue=3.00))
-        self.addParameter(QgsProcessingParameterNumber(self.ABS_LOWER_KEY, self.tr('Absolute Lower Tile Depth [ft]'), type=QgsProcessingParameterNumber.Double, maxValue=10.0, defaultValue=4.00))
+        self.addParameter(QgsProcessingParameterNumber(self.ABS_LOWER_KEY, self.tr('Absolute Lower Tile Depth [ft]'), type=QgsProcessingParameterNumber.Double, maxValue=10.0, defaultValue=7.00))
         self.addParameter(QgsProcessingParameterNumber(self.MAXI_SLOPE_KEY, self.tr('Maximum Slope Depth [percentage]'), type=QgsProcessingParameterNumber.Double, maxValue=100.0, defaultValue=5.00))
         self.addParameter(QgsProcessingParameterNumber(self.MINI_SLOPE_KEY, self.tr('Minimum Slope Depth [percentage]'), type=QgsProcessingParameterNumber.Double, maxValue=100.0, defaultValue=0.10))
         self.addParameter(QgsProcessingParameterNumber(self.OFFSET_KEY, self.tr('Offset Depth [ft]'), type=QgsProcessingParameterNumber.Double, maxValue=10.0, defaultValue=0.00))
         
         self.addParameter(QgsProcessingParameterNumber(self.CONST_SLOPE_KEY, self.tr('Constant Slope Depth [percentage]'), type=QgsProcessingParameterNumber.Double, maxValue=100.0, defaultValue=0.50, optional = True))
-        self.addParameter(QgsProcessingParameterBoolean(self.USE_CONST_KEY, self.tr('Include Constant Slope'), defaultValue=False))
+        self.addParameter(QgsProcessingParameterBoolean(self.USE_CONST_KEY, self.tr('Include Constant Slope [For Flat Terrain Only]'), defaultValue=False))
                                      
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Buried Elevation Depths')))
         
                       
     def processAlgorithm(self, parameters, context, feedback):                
         
-        raw_layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        source_layer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
         
-        if raw_layer is None:
+        if source_layer is None:
             raise QgsProcessingException(self.invalidSourceError(parameters, self.INPUT))
-        raw_fields = raw_layer.fields()                
-        
+        raw_fields = source_layer.fields() 
+                            
         upper_depth = parameters[self.UPPER_KEY]
         lower_depth = parameters[self.LOWER_KEY]
         mid_depth = (upper_depth + lower_depth) / 2  # Mid-Depth Value, MD
@@ -164,96 +173,401 @@ class BuryAlgorithm(QgsProcessingAlgorithm):
         const_slope = parameters[self.CONST_SLOPE_KEY]
         constant_slope = (const_slope * 0.01)
         
-        const_key = parameters[self.USE_CONST_KEY]
-        
+        const_key = parameters[self.USE_CONST_KEY]      
+                    
         '''add new fields'''
         #define new fields
         out_fields = QgsFields()
         #append fields
         for field in raw_fields:
-            out_fields.append(QgsField(field.name(), field.type()))
-        out_fields.append(QgsField('ELEV_DEPTHS', QVariant.String))
-        out_fields.append(QgsField('BURY_DEPTHS', QVariant.String))        
+            out_fields.append(QgsField(field.name(), field.type()))       
+        out_fields.append(QgsField('ElevDepth1', QVariant.String))
+        out_fields.append(QgsField('BuryDepth1', QVariant.String))
+        out_fields.append(QgsField('ElevDepth2', QVariant.String))
+        out_fields.append(QgsField('BuryDepth2', QVariant.String))
+        out_fields.append(QgsField('InSlope', QVariant.String))
+        out_fields.append(QgsField('OutSlope', QVariant.String))        
                       
         '''Counter for the progress bar'''
-        total = raw_layer.featureCount()
+        total = source_layer.featureCount()
         parts = 100/total
-
-        '''names of fields from Tile Network'''        
-        segment_id = self.parameterAsString(parameters, self.SEGMENT_KEY, context)
-        dist_id = self.parameterAsString(parameters, self.DIST_KEY, context)
-        surface_id = self.parameterAsString(parameters, self.SURFACE_KEY, context)
         
-        '''field index for id,next segment, previous segment'''
-        idx_segment = raw_layer.fields().indexFromName(segment_id) 
-        idx_dist = raw_layer.fields().indexFromName(dist_id)
-        idx_surface = raw_layer.fields().indexFromName(surface_id)
-                        
+        # Get fields from source layer
+        idx_segment = raw_fields.indexFromName(self.parameterAsString(parameters, self.SEGMENT_KEY, context))
+        idx_first = raw_fields.indexFromName(self.parameterAsString(parameters, self.FIRST_KEY, context)) 
+        idx_last = raw_fields.indexFromName(self.parameterAsString(parameters, self.LAST_KEY, context))
+        idx_dist = raw_fields.indexFromName(self.parameterAsString(parameters, self.DIST_KEY, context))
+     
+        '''Counter for the progress bar'''                                            
+        total = source_layer.featureCount()
+        parts = 100/total
+                                                                     
         '''load data from layer "raw_layer" '''
-        feedback.setProgressText(self.tr("Loading network layer\n "))        
+        feedback.setProgressText(self.tr("Loading network layer\n "))
         
-        # first = previous; second = current
-        def tile_elev(first_dist, second_dist, s_elev, start_elev):
-            # Without Constant Slope
-            if second_dist == first_dist:
-                return start_elev
+        # Sort the features in the raw_layer based on the segment_id attribute        
+        sorted_features = sorted(source_layer.getFeatures(), key=lambda f: int(f[idx_segment]))
+                    
+        # Starting the burying operation
+        mid_depth = (upper_depth + lower_depth)/ 2  # MD Value        
+                
+        # New 6 listts calculated inside the code. All 6 lists are float numbers
+        ra_lst = []
+        rb_lst = []      
+        fe = []
+        le = []
+        listed_slopes = []
+        
+        # Storing the visited values
+        visited_values = {}
+                     
+        # Iterate over the sorted features and perform your calculations
+        for i, feature in enumerate(sorted_features):
+            # access the desired attribute values using the corresponding field index           
+            first_elevy = feature.attribute(idx_first)            
+            if not isinstance(first_elevy, (list, tuple)):
+                first_elevy = [first_elevy]           
+                        
+            last_elevy = feature.attribute(idx_last)           
+            if not isinstance(last_elevy, (list, tuple)):
+                last_elevy = [last_elevy]                
+            
+            length_idy = feature.attribute(idx_dist)            
+            if not isinstance(length_idy, (list, tuple)):
+                length_idy = [length_idy]          
 
-            dist_difference = second_dist - first_dist # Distance Difference Value, L3
+            calc_column = 'B' if last_elevy < first_elevy else 'A'
+                      
+            # Part A: This is done only for Row 1 Fields
+            for first_elev, last_elev, length_id in zip(first_elevy, last_elevy, length_idy):
+                if i == 0:                
+                    if calc_column == 'B':
+               
+                        r_b1 = last_elev - mid_depth                
+                        rb_lst.append(r_b1)
+                        
+                        ld = last_elev - r_b1
+                        le.append(ld)
+                        visited_values[last_elev] = r_b1                    
+                    
+                        mid_elev = first_elev - mid_depth                               
+                      
+                        tile_slopes = mid_elev - r_b1
+                        abs_list = tile_slopes/length_id      
+                       
+                        fgs_list = abs_list                   
+                          
+                        if fgs_list > max_slope:
+                            listed_slope = max_slope
+                            listed_slopes.append(listed_slope)        
+                        elif fgs_list < min_slope:
+                            listed_slope = min_slope
+                            listed_slopes.append(listed_slope)
+                        else:
+                            listed_slope = fgs_list
+                            listed_slopes.append(listed_slope)                        
+                                   
+                        slope = abs_list 
+                                                                                        
+                        if slope > max_slope:
+                            r_a1 = r_b1 + (length_id * max_slope)
+                            if r_a1 > first_elev - abs_upper:
+                                r_a1 = first_elev - abs_upper
+                        elif slope < min_slope:
+                            r_a1 = r_b1 + (length_id * min_slope)
+                            if r_a1< first_elev - abs_lower:
+                                r_a1 = first_elev - abs_lower 
+                        else:
+                            r_a1 = mid_elev
+                           
+                        ra_lst.append(r_a1)                        
+                        fd = first_elev - r_a1
+                        fe.append(fd)                        
+                        visited_values[first_elev] = r_a1                                   
+                    
+                    else:                 
+                        r_a1 = first_elev - mid_depth                
+                        ra_lst.append(r_a1)
+                        
+                        fd = first_elev - r_a1
+                        fe.append(fd)
+                        
+                        visited_values[first_elev] = r_a1                   
+                        
+                        mid_elev = last_elev - mid_depth
 
-            # Use Constant Slope
-            if const_key is True:
-                return start_elev + (dist_difference * constant_slope) / 100
+                        tile_slopes = mid_elev - r_a1 
+                        abs_list = tile_slopes/length_id           
+                   
+                        fgs_list = abs_list                     
+                                             
+                        if fgs_list > max_slope:
+                            listed_slope = max_slope
+                            listed_slopes.append(listed_slope)        
+                        elif fgs_list < min_slope:
+                            listed_slope = min_slope
+                            listed_slopes.append(listed_slope)
+                        else:
+                            listed_slope = fgs_list
+                            listed_slopes.append(listed_slope)                   
+                                       
+                        slope = abs_list 
+                                                                                           
+                        if slope > max_slope:
+                            r_b1 = r_a1 + (length_id * max_slope)
+                            if r_b1 > last_elev - abs_upper:
+                                r_b1 = last_elev - abs_upper
+                        elif slope < min_slope:
+                            r_b1 = r_a1 + (length_id * min_slope)
+                            if r_b1< last_elev - abs_lower:
+                                r_b1 = last_elev - abs_lower 
+                        else:
+                            r_b1 = mid_elev
+                           
+                        rb_lst.append(r_b1)
+                        ld = last_elev - r_b1                    
+                        le.append(ld)
+                        visited_values[last_elev] = r_b1
+                        
+                # Use Constant Slope and overide other slope calculations   
+                elif const_key is True:
+                
+                    if last_elev in visited_values:
+                    
+                        r_b1 = visited_values[last_elev]                                              
+                        rb_lst.append(r_b1)
+                        
+                        ld = last_elev - r_b1
+                        le.append(ld)
+                        visited_values[last_elev] = r_b1
+                      
+                        if first_elev in visited_values:
+                            r_a1 = visited_values[first_elev]
+                            ra_lst.append(r_a1)
+                            
+                            fd = first_elev - r_a1
+                            fe.append(fd)
+                            visited_values[first_elev] = r_a1
+                            
+                        else:
+                            mid_elev = first_elev - mid_depth                            
+                            tile_slopes = mid_elev - r_b1
+                            
+                            fgs_list = constant_slope
+                            r_a1 = first_elev + (length_id * constant_slope)
+                            ra_lst.append(r_a1)
+                            
+                            listed_slope = constant_slope
+                            listed_slopes.append(listed_slope)
+                            
+                            fd = first_elev - r_a1
+                            fe.append(fd)
+                            visited_values[first_elev] = r_a1
+                            
+                    else:
+                        r_a1 = visited_values[first_elev]                                              
+                        ra_lst.append(r_a1)
+                        
+                        fd = first_elev - r_a1
+                        fe.append(fd)
+                        visited_values[first_elev] = r_a1
+                      
+                        if last_elev in visited_values:
+                            r_b1 = visited_values[last_elev]
+                            rb_lst.append(r_b1)
+                            
+                            ld = last_elev - r_b1
+                            le.append(ld)
+                            visited_values[last_elev] = r_b1
+                            
+                        else:
+                            mid_elev = last_elev - mid_depth                            
+                            tile_slopes = mid_elev - r_b1
+                            
+                            fgs_list = constant_slope
+                            r_b1 = last_elev + (length_id * constant_slope)
+                            rb_lst.append(r_b1)
+                            
+                            listed_slope = constant_slope
+                            listed_slopes.append(listed_slope)
+                            
+                            ld = last_elev - r_b1
+                            le.append(ld)
+                            visited_values[last_elev] = r_b1                                               
+                      
+                # Part B: This is done only for other Rows starting from rows 2 downwards                                         
+                else:    
+                    if last_elev in visited_values:
+                    
+                        r_b1 = visited_values[last_elev]                                              
+                        rb_lst.append(r_b1)
+                        
+                        ld = last_elev - r_b1
+                        le.append(ld)
+                        visited_values[last_elev] = r_b1
+                      
+                        if first_elev in visited_values:
+                            r_a1 = visited_values[first_elev]
+                            ra_lst.append(r_a1)
+                            
+                            fd = first_elev - r_a1
+                            fe.append(fd)
+                            visited_values[first_elev] = r_a1
+                                                        
+                        else:        
+                            mid_elev = first_elev - mid_depth
+                            
+                            tile_slopes = mid_elev - r_b1                    
+                            abs_list = tile_slopes/length_id
+                           
+                            fgs_list = abs_list
+                                                        
+                            if fgs_list > max_slope:
+                                listed_slope = max_slope
+                                listed_slopes.append(listed_slope)        
+                            elif fgs_list < min_slope:
+                                listed_slope = min_slope
+                                listed_slopes.append(listed_slope)
+                            else:
+                                listed_slope = fgs_list
+                                listed_slopes.append(listed_slope)
+                                                                       
+                            slope = abs_list
+                                                   
+                            if slope > max_slope:
+                                r_a1 = first_elev + (length_id * max_slope)
+                                if r_a1 > first_elev - abs_upper:
+                                    r_a1 = first_elev - abs_upper
+                            elif slope < min_slope:
+                                r_a1 = first_elev + (length_id * min_slope)
+                                if r_a1 < first_elev - abs_lower:
+                                    r_a1 = first_elev - abs_lower
+                            else:                                                         
+                                r_a1 = mid_elev
+                                
+                            ra_lst.append(r_a1)
+                            fd = first_elev - r_a1
+                            fe.append(fd)
+                            visited_values[first_elev] = r_a1
+                                              
+                    else:                         
+                        r_a1 = visited_values[first_elev]                    
+                        ra_lst.append(r_a1)
+                        
+                        fd = first_elev - r_a1
+                        fe.append(fd)
+                        visited_values[first_elev] = r_a1 
+                        
+                        if last_elev in visited_values:
+                            r_b1 = visited_values[last_elev]
+                            rb_lst.append(r_b1)
+                            
+                            ld = last_elev - r_b1
+                            le.append(ld)
+                            visited_values[last_elev] = r_b1
+                            
+                        else:    
+                            mid_elev = last_elev - mid_depth
+                            
+                            tile_slopes = mid_elev - r_a1                    
+                            abs_list = tile_slopes/length_id 
+                         
+                            fgs_list = abs_list 
+                              
+                            if fgs_list > max_slope:
+                                listed_slope = max_slope
+                                listed_slopes.append(listed_slope)        
+                            elif fgs_list < min_slope:
+                                listed_slope = min_slope
+                                listed_slopes.append(listed_slope)
+                            else:
+                                listed_slope = fgs_list
+                                listed_slopes.append(listed_slope)
+                           
+                            slope = abs_list
+                            
+                            if slope > max_slope:
+                                r_b1 = last_elev + (length_id * max_slope)
+                                if r_b1 > last_elev - abs_upper:
+                                    r_b1 = last_elev - abs_upper
+                            elif slope < min_slope:
+                                r_b1 = last_elev + (length_id * min_slope)
+                                if r_b1 < last_elev - abs_lower:
+                                    r_b1 = last_elev - abs_lower
+                            else:                                                        
+                                r_b1 = mid_elev
+                                
+                            rb_lst.append(r_b1)
+                            ld = last_elev - r_b1
+                            le.append(ld)                                
+                            visited_values[last_elev] = r_b1
+                                             
+                fe2 = [abs(x) for x in fe]
+                le2 = [abs(x) for x in le]
+                              
+            # Starting Part 3
+            slopy_slopes = []
+            # Using list comprehension to compute the buried slopes
+            tile_slopes = [a - b for a, b in zip(ra_lst, rb_lst)]
+            abs_list = [tile_slopes[i] / length_id for i in range(len(tile_slopes))]
 
-            # Plotting with Slope Calculations
-            mid_elev = s_elev - mid_depth
-            tile_elev = (mid_elev - start_elev) / dist_difference   # average plot Value, asl
-
-            if tile_elev > max_slope:
-                tile_elev = start_elev + (dist_difference * max_slope)
-            if tile_elev < min_slope:
-                tile_elev = start_elev + (dist_difference * min_slope)
-            if tile_elev > s_elev - abs_upper:
-                tile_elev = s_elev - abs_upper
-            if tile_elev < s_elev - abs_lower:
-                tile_elev = s_elev - abs_lower
-
-            return tile_elev
-
-        feedback.pushInfo(QCoreApplication.translate('TempFiles','Calculating elevation depths'))                    
+            for num in abs_list:
+                fgs_list = num    
+                if fgs_list > max_slope:
+                    listed_slope = max_slope
+                    slopy_slopes.append(listed_slope)                
+                elif fgs_list < min_slope:
+                    listed_slope = min_slope
+                    slopy_slopes.append(listed_slope)
+                else:
+                    listed_slope = fgs_list
+                    slopy_slopes.append(listed_slope)   
+                        
+        feedback.setProgressText(self.tr("Extracting the values\n "))
         
         '''sink definition'''
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, out_fields, raw_layer.wkbType(), raw_layer.sourceCrs())
-                                       
-        '''add new features to sink'''
-        feedback.setProgressText(self.tr("creating output \n"))
-        features = raw_layer.getFeatures()
+        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context, out_fields, source_layer.wkbType(), source_layer.sourceCrs())
+        
+        # Create a dictionary with the values from the six lists
+        dict_values = {
+            'ElevDepth1': [float(val) + offset if i == 0 else float(val) for i, val in enumerate(ra_lst)],
+            'BuryDepth1': fe2,
+            'ElevDepth2': [float(val) + offset if i == 0 else float(val) for i, val in enumerate(rb_lst)],
+            'BuryDepth2': le2,
+            'InSlope': listed_slopes,
+            'OutSlope': slopy_slopes
+        }        
+                        
+        # Get the length of sorted_features
+        n_features = len(sorted_features)
 
-        current_line_id = None
-        p_dist = None
-        p_elev = None
-
-        for (n, feature) in enumerate(features):
+        # Truncate or pad the lists to match the length of sorted_features
+        for key in dict_values.keys():
+            if len(dict_values[key]) < n_features:
+                dict_values[key] += [None] * (n_features - len(dict_values[key]))
+            elif len(dict_values[key]) > n_features:
+                dict_values[key] = dict_values[key][:n_features]
+                
+        # Use zip to iterate over the features and the corresponding values from the six lists
+        for feature, elev1, bury1, elev2, bury2, slope1, slope2 in zip(sorted_features, dict_values['ElevDepth1'], dict_values['BuryDepth1'], dict_values['ElevDepth2'], dict_values['BuryDepth2'], dict_values['InSlope'], dict_values['OutSlope']):
             # Stop the algorithm if cancel button has been clicked
             if feedback.isCanceled():
-                break                          
-            # Add a feature in the sink
-            outFt = QgsFeature(out_fields)
-            outFt.setGeometry(feature.geometry())
-            outFt.setAttributes(feature.attributes() + [None, None])  # Expand array
+                break                
+             
+            # Add a feature in the sink                        
+            outFt = QgsFeature(out_fields)            
+            outFt.setGeometry(feature.geometry())            
+            outFt.setAttributes(feature.attributes() + [None]*6)  # Expand array            
 
-            c_dist = feature[idx_dist]
-            s_elev = feature[idx_surface]
-            if feature[idx_segment] != current_line_id:  # newline
-                current_line_id = feature[idx_segment]
-                p_dist = c_dist
-                p_elev = s_elev - mid_depth  # for now we just use middle value of lower and upper as the start elevation
-            b_elev = tile_elev(p_dist, c_dist, s_elev, p_elev)
-            outFt["ELEV_DEPTHS"] = b_elev + offset
-            outFt["BURY_DEPTHS"] = s_elev - outFt["ELEV_DEPTHS"]
-            p_dist = c_dist
-            p_elev = b_elev
-
-            # Add feature to sink
-            sink.addFeature(outFt, QgsFeatureSink.FastInsert)                      
-       
-        return {self.OUTPUT: dest_id}
+            # Set the attribute values for each feature
+            outFt['ElevDepth1'] = elev1
+            outFt['BuryDepth1'] = bury1
+            outFt['ElevDepth2'] = elev2
+            outFt['BuryDepth2'] = bury2
+            outFt['InSlope'] = slope1
+            outFt['OutSlope'] = slope2
+                           
+            #Add feature to sink
+            sink.addFeature(outFt, QgsFeatureSink.FastInsert)               
+                      
+        return {self.OUTPUT: dest_id}        

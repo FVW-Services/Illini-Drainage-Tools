@@ -106,7 +106,7 @@ class TileStatisticsAlgorithm(QgsProcessingAlgorithm):
     
     
     def initAlgorithm(self, config=None):
-        self.addParameter(QgsProcessingParameterRasterLayer('MDT', 'Field DEM', defaultValue=None))
+        self.addParameter(QgsProcessingParameterRasterLayer('MDT', 'Original Field DEM', defaultValue=None))
         self.addParameter(QgsProcessingParameterFeatureSink('TileStats', 'Tile Statistics', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))
         self.addParameter(QgsProcessingParameterBoolean('VERBOSE_LOG', 'Verbose logging', optional=True, defaultValue=True))
         self.addParameter(QgsProcessingParameterVectorLayer('VectorLineLayer', 'Tile Network Orders', types=[QgsProcessing.TypeVectorLine], defaultValue=None))
@@ -173,23 +173,7 @@ class TileStatisticsAlgorithm(QgsProcessingAlgorithm):
         feedback.setCurrentStep(3)
         if feedback.isCanceled():
             return {}
-
-        # # Field calculator1
-        # alg_params = {
-            # 'FIELD_LENGTH': 13,
-            # 'FIELD_NAME': 'True_Length',
-            # 'FIELD_PRECISION': 2,
-            # 'FIELD_TYPE': 0,
-            # 'FORMULA': ' $length ',
-            # 'INPUT': outputs['ExtractZValues']['OUTPUT'],
-            # 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
-        # }
-        # outputs['FieldCalculator1'] = processing.run('native:fieldcalculator', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #4
-
-        # feedback.setCurrentStep(4)
-        # if feedback.isCanceled():
-            # return {}
-
+      
         # Calculates True Length
         alg_params = {
             'LINES': outputs['ExtractZValues']['OUTPUT'],
@@ -206,11 +190,11 @@ class TileStatisticsAlgorithm(QgsProcessingAlgorithm):
             
         # Field calculator2
         alg_params = {
-            'FIELD_LENGTH': 11,
-            'FIELD_NAME': 'Abs_Slope',
+            'FIELD_LENGTH': 18,
+            'FIELD_NAME': 'Seg_Slope',
             'FIELD_PRECISION': 3,
             'FIELD_TYPE': 0,
-            'FORMULA': '(abs(\"Elev_first\" - \"Elev_last\") / \"LENGTH\" )',
+            'FORMULA': '(abs(\"Elev_first\" - \"Elev_last\") / \"LENGTH\")', #'(abs(\"Elev_first\" - \"Elev_last\") / \"LENGTH\" )',
             'INPUT': outputs['SegmentLengths']['OUTPUT'],
             'OUTPUT': parameters['TileStats']
         }

@@ -123,7 +123,8 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
     
     def initAlgorithm(self, config=None):
         
-        self.addParameter(QgsProcessingParameterRasterLayer('MDT', 'Field LiDAR DEM', defaultValue=None))
+        self.addParameter(QgsProcessingParameterRasterLayer('HGF', 'Original LiDAR DEM', defaultValue=None))
+        self.addParameter(QgsProcessingParameterRasterLayer('MDT', 'Thinned LiDAR DEM', defaultValue=None))
         self.addParameter(QgsProcessingParameterVectorLayer('VectorPolygonLayer', 'Field Boundary', types=[QgsProcessing.TypeVectorPolygon], defaultValue=None))
         
         #self.addParameter(QgsProcessingParameterCrs('CRS', 'Targeted CRS', defaultValue='EPSG:3435')) 
@@ -140,7 +141,7 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         # Use a multi-step feedback, so that individual child algorithm progress reports are adjusted for the
         # overall progress through the model
         
-        feedback = QgsProcessingMultiStepFeedback(7, model_feedback)
+        feedback = QgsProcessingMultiStepFeedback(9, model_feedback)
         results = {}
         outputs = {}                   
                                   
@@ -207,25 +208,45 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         outputs['ChannelNetwork2'] = processing.run('saga:channelnetwork', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #6
         results['ChannelNetwork2'] = outputs['ChannelNetwork2']['SHAPES']
         
+        # Clip Original Raster DEM Layer Out  
+        alg_params = {'INPUT': parameters['HGF'], 'MASK': results['VectorBuffer'], 'CROP_TO_CUTLINE': True, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT} 
+                              
+        feedback.setCurrentStep(7)
+        if feedback.isCanceled():
+            return {}
+            
+        outputs['ClipLayer'] = processing.run('gdal:cliprasterbymasklayer', alg_params, context=context, feedback=feedback, is_child_algorithm=True)#7     
+        results['ClipLayer'] = outputs['ClipLayer']['OUTPUT']
+        
+        # Fill DEM Sinks               
+        alg_params = {'DEM': results['ClipLayer'], 'MINSLOPE': 0.03, 'RESULT': QgsProcessing.TEMPORARY_OUTPUT}
+        
+        feedback.setCurrentStep(8)
+        if feedback.isCanceled():
+            return {} 
+        
+        outputs['FillSinkz'] = processing.run('saga:fillsinks', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #8        
+        results['FillSinkz'] = outputs['FillSinkz']['RESULT'] 
+        
         ## Raster Calculator
-        A = outputs['ClipRasterbyMaskLayer']['OUTPUT']#2
-        B = outputs['FillSinks']['RESULT'] #6              
+        B = outputs['ClipLayer']['OUTPUT']#7
+        A = outputs['FillSinkz']['RESULT'] #8              
         
         alg_params = {
-        'INPUT_A': results['FillSinks'], 
+        'INPUT_A': results['FillSinkz'], 
         'BAND_A': 1, 
-        'INPUT_B': results['ClipRasterbyMaskLayer'],              
-        'FORMULA': "B-A>parameters['RasterDepth']",
+        'INPUT_B': results['ClipLayer'],              
+        'FORMULA': "A-B>parameters['RasterDepth']",
         'NO_DATA': None,        
         'RTYPE': 5, 
         'OUTPUT': parameters['DeRaster']
         }       
         
-        feedback.setCurrentStep(7)
+        feedback.setCurrentStep(9)
         if feedback.isCanceled():
             return {}
         
-        outputs['RasterCalculator'] = processing.run('gdal:rastercalculator', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #7
+        outputs['RasterCalculator'] = processing.run('gdal:rastercalculator', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #9
         results['RasterCalculator'] = outputs['RasterCalculator']['OUTPUT']
         
         if context.willLoadLayerOnCompletion(results['Contour']):

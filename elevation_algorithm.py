@@ -101,10 +101,11 @@ class ElevationAlgorithm(QgsProcessingAlgorithm):
         return self.tr("""This Tool generates elevation points for each line segment of the Tile Network.
         
         Workflow: 
-        1. Select a DEM Layer and a Line Layer. This is a follow-up from "Routine K"
+        1. Select a DEM Layer and the Tile Line Layer from "Cumulative Flow Lengths". This is a follow-up from "Routine K"
         2. Select a reference field for generating the elevation points from
-        3. Save the output files (optional)
-        4. Click on \"Run\"
+        3. Select a desired coordinate reference system for displaying the generated elevation points
+        4. Save the output files (optional)
+        5. Click on \"Run\"
         
         The script will gives out three outputs.         
                 
@@ -116,10 +117,12 @@ class ElevationAlgorithm(QgsProcessingAlgorithm):
     
     
     def initAlgorithm(self, config=None):        
-        self.addParameter(QgsProcessingParameterRasterLayer('MDFT', 'Field DEM',  defaultValue=None))        
-        self.addParameter(QgsProcessingParameterVectorLayer('LineSegmentLayer', 'Tile Lines: from Cummulative Flow Lengths', types=[QgsProcessing.TypeVectorLine], defaultValue=None))
-        self.addParameter(QgsProcessingParameterField('FGHTY', 'Field to Calculate [Tile_ID]', parentLayerParameterName = 'LineSegmentLayer', type = QgsProcessingParameterField.Any,)) 
-        self.addParameter(QgsProcessingParameterFeatureSink('FinalFields', 'Final Reference Fields', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))       
+        self.addParameter(QgsProcessingParameterRasterLayer('MDFT', 'Original Field DEM',  defaultValue=None))        
+        self.addParameter(QgsProcessingParameterVectorLayer('LineSegmentLayer', 'Tile Lines: from Cumulative Flow Lengths', types=[QgsProcessing.TypeVectorLine], defaultValue=None))
+        self.addParameter(QgsProcessingParameterField('FGHTY', 'Field to Calculate [TILE_ID]', parentLayerParameterName = 'LineSegmentLayer', type = QgsProcessingParameterField.Any,)) 
+        self.addParameter(QgsProcessingParameterCrs('CRS', 'Coordinate Reference System', defaultValue='EPSG:3435'))
+        self.addParameter(QgsProcessingParameterFeatureSink('FinalFields', 'Final Reference Fields', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))
+        self.addParameter(QgsProcessingParameterVectorDestination('EndpointElevations', 'End Point Elevations', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))
         self.addParameter(QgsProcessingParameterVectorDestination('TerrainProfiles', 'Network Elevation Points', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))
         self.addParameter(QgsProcessingParameterFolderDestination('Splitty', 'Network Spreadsheet', createByDefault=True, defaultValue=None))
                      
@@ -127,12 +130,12 @@ class ElevationAlgorithm(QgsProcessingAlgorithm):
     def processAlgorithm(self, parameters, context, model_feedback):
         # Use a multistep feedback, so that individual child algorithm progress reports are adjusted for the
         # overall progress through the model    
-        feedback = QgsProcessingMultiStepFeedback(4, model_feedback)
+        feedback = QgsProcessingMultiStepFeedback(9, model_feedback)
         results = {}
         outputs = {}                                       
         
         # Final Retained Fields of Interest
-        retained_params = {"INPUT": parameters['LineSegmentLayer'], "FIELDS": ['Tile_ID', 'Tile_TO', 'Elev_First', 'Elev_Last', 'LENGTH', 'FLOW_LENGTH', 'Abs_Slope', 'FLOW_LINE', 'TILE_FLOW', 'FLOW_ORDER', 'Tile_ORDER'], "OUTPUT": parameters['FinalFields']}                   
+        retained_params = {"INPUT": parameters['LineSegmentLayer'], "FIELDS": ['Tile_ID', 'Tile_TO', 'Elev_First', 'Elev_Last', 'LENGTH', 'FLOW_LENGTH', 'FLOW_LENGT', 'Seg_Slope', 'FLOW_LINE', 'TILE_FLOW', 'FLOW_ORDER', 'Tile_ORDER', 'BURY_ORDER', 'SIZING_ID'], "OUTPUT": parameters['FinalFields']}                   
         
         feedback.setCurrentStep(1)
         if feedback.isCanceled():
@@ -141,34 +144,91 @@ class ElevationAlgorithm(QgsProcessingAlgorithm):
         outputs['RetainFields'] = processing.run('native:retainfields', retained_params, context=context, feedback=feedback, is_child_algorithm=True) #1
         results['RetainFields'] = outputs['RetainFields']['OUTPUT']
         
-        # Line Terrain Profiles
-        line_params = {'DEM': parameters['MDFT'], 'LINES': results['RetainFields'], 'NAME': parameters['FGHTY'], 'PROFILE': QgsProcessing.TEMPORARY_OUTPUT}
+        # Extract Vertex
+        vertex_params = {'INPUT': results['RetainFields'], 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
                         
         feedback.setCurrentStep(2)
         if feedback.isCanceled():
             return {}
 
-        outputs['ProfilesFromLines'] = processing.run('saga:profilesfromlines', line_params, context=context, feedback=feedback, is_child_algorithm=True) #2
-        results['ProfilesFromLines'] = outputs['ProfilesFromLines']['PROFILE']
+        outputs['EndpointVertex'] = processing.run('native:extractvertices', vertex_params, context=context, feedback=feedback, is_child_algorithm=True) #2
+        results['EndpointVertex'] = outputs['EndpointVertex']['OUTPUT']
+        
+        # Add X & Y Fields
+        xyadds_params = {'INPUT': results['EndpointVertex'], 'CRS': parameters['CRS'], 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
+                        
+        feedback.setCurrentStep(3)
+        if feedback.isCanceled():
+            return {}
+
+        outputs['AddXYfields'] = processing.run('native:addxyfields', xyadds_params, context=context, feedback=feedback, is_child_algorithm=True) #3
+        results['AddXYfields'] = outputs['AddXYfields']['OUTPUT']
+        
+        # Add Field ID
+        idz_params = {
+            'FIELD_LENGTH': 11,
+            'FIELD_NAME': 'Point_ID',
+            'FIELD_PRECISION': 3,
+            'FIELD_TYPE': 1,
+            'FORMULA': '$id',
+            'INPUT': results['AddXYfields'],
+            'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
+        }
+        feedback.setCurrentStep(4)
+        if feedback.isCanceled():
+            return {}
+
+        outputs['AddFieldID'] = processing.run('native:fieldcalculator', idz_params, context=context, feedback=feedback, is_child_algorithm=True) #4
+        results['AddFieldID'] = outputs['AddFieldID']['OUTPUT']        
+                
+        # Endpoint Fields of Interest
+        endpoint_params = {"INPUT": results['AddFieldID'], "FIELDS": ['Point_ID', 'x', 'y'], "OUTPUT": QgsProcessing.TEMPORARY_OUTPUT}
+                                
+        feedback.setCurrentStep(5)
+        if feedback.isCanceled():
+            return {}
+
+        outputs['FinalEndPoints'] = processing.run('native:retainfields', endpoint_params, context=context, feedback=feedback, is_child_algorithm=True) #5
+        results['FinalEndPoints'] = outputs['FinalEndPoints']['OUTPUT']
+        
+        # Add Raster Values to Points
+        elev_params = {'SHAPES': results['FinalEndPoints'], 'GRIDS': parameters['MDFT'], 'RESAMPLING': 0, 'RESULT': parameters['EndpointElevations']}
+                        
+        feedback.setCurrentStep(6)
+        if feedback.isCanceled():
+            return {}
+
+        outputs['ExtractElevationPoints'] = processing.run('saga:addrastervaluestopoints', elev_params, context=context, feedback=feedback, is_child_algorithm=True) #6
+        results['ExtractElevationPoints'] = outputs['ExtractElevationPoints']['RESULT']
+        
+        # Line Terrain Profiles
+        line_params = {'DEM': parameters['MDFT'], 'LINES': results['RetainFields'], 'NAME': parameters['FGHTY'], 'PROFILE': QgsProcessing.TEMPORARY_OUTPUT}
+                        
+        feedback.setCurrentStep(7)
+        if feedback.isCanceled():
+            return {}
+
+        outputs['ProfilesFromLines'] = processing.run('saga:profilesfromlines', line_params, context=context, feedback=feedback, is_child_algorithm=True) #7
+        results['ProfilesFromLines'] = outputs['ProfilesFromLines']['PROFILE']               
         
         # Rename Field Name        
         rename_params = {'INPUT': results['ProfilesFromLines'], 'FIELD': 'Z', 'NEW_NAME': 'SURF_ELEV', 'OUTPUT': parameters['TerrainProfiles']}
         
-        feedback.setCurrentStep(3)
+        feedback.setCurrentStep(8)
         if feedback.isCanceled():
             return {}
             
-        outputs['RenameTableField'] = processing.run('qgis:renametablefield', rename_params, context=context, feedback=feedback, is_child_algorithm=True) #3
+        outputs['RenameTableField'] = processing.run('qgis:renametablefield', rename_params, context=context, feedback=feedback, is_child_algorithm=True) #8
         results['RenameTableField'] = outputs['RenameTableField']['OUTPUT']             
                
         # Split and Save as CSV Files
         split_params = {'INPUT': results['RenameTableField'], 'FIELD': 'LINE_ID', "FILE_TYPE": 4, 'OUTPUT': parameters['Splitty']}          
                                               
-        feedback.setCurrentStep(4)
+        feedback.setCurrentStep(9)
         if feedback.isCanceled():
             return {}        
         
-        outputs['SplitToCSV'] = processing.run('qgis:splitvectorlayer', split_params, context=context, feedback=feedback, is_child_algorithm=True) #4
+        outputs['SplitToCSV'] = processing.run('qgis:splitvectorlayer', split_params, context=context, feedback=feedback, is_child_algorithm=True) #9
         results['SplitToCSV'] = outputs['SplitToCSV']['OUTPUT']  
 
         if context.willLoadLayerOnCompletion(results['RetainFields']):
