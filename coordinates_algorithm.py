@@ -85,10 +85,18 @@ class CoordinatesAlgorithm(QgsProcessingAlgorithm):
         if feedback.isCanceled():
             return {}
 
-        # Vector Coordinates Assignation
-        alg_params = {'INPUT': parameters['VectorLineLayer'], 'CRS': parameters['CRS'], 'OUTPUT': parameters['VectorNew']}
+        # # Vector Coordinates Assignation
+        # alg_params = {'INPUT': parameters['VectorLineLayer'], 'CRS': parameters['CRS'], 'OUTPUT': parameters['VectorNew']}
         
-        outputs['VectorCRS'] = processing.run('native:assignprojection', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #2
+        # outputs['VectorCRS'] = processing.run('native:assignprojection', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #2
+                        
+        # results['VectorNew'] = outputs['VectorCRS']['OUTPUT']
+        # return results
+        
+        # Vector Coordinates Assignation
+        alg_params = {'INPUT': parameters['VectorLineLayer'], 'TARGET_CRS': parameters['CRS'], 'OUTPUT': parameters['VectorNew']}
+        
+        outputs['VectorCRS'] = processing.run('native:reprojectlayer', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #2
                         
         results['VectorNew'] = outputs['VectorCRS']['OUTPUT']
         return results

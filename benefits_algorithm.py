@@ -64,7 +64,9 @@ import numpy as np
 class BenefitsAlgorithm(QgsProcessingAlgorithm):
     INPUT_LAYER = 'INPUT_LAYER'
     SEGMENT_KEY = 'SEGMENT_KEY'
-    FLOW_KEY = 'SYSTEM_FLOW'
+    SEG_FLOW_KEY = 'CUM_SEG_FLOW'    
+    SINGLE_KEY = 'SINGLE_KEY'
+    MULTIPLE_KEY = 'MULTIPLE_KEY'
     TILE_TO_KEY = 'TILE_TO'
     ORDER_KEY = 'ORDER_KEY'
     LENGTH_KEY = 'LENGTH_KEY'
@@ -79,6 +81,7 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
     ORDER_COFF_KEY = 'ORDER_COFF_KEY'
     OUTPUT = 'OUTPUT'      
     D_COEFF_KEY = 'D_COEFF'
+    D_AREA_KEY = 'D_AREA'
     PIPE_SIZE_KEY = 'ACTUAL_SIZE'
     NOMINAL_PIPE_SIZE_KEY = 'NOMINAL'
         
@@ -149,9 +152,13 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterField(self.ORDER_KEY, self.tr("Strahler Orders [TILE_ORDER]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
 
         self.addParameter(QgsProcessingParameterField(self.LENGTH_KEY, self.tr("Cumulative Segment Lengths [FLOW_LENGTH]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))               
-        self.addParameter(QgsProcessingParameterField(self.SLOPE_KEY, self.tr("Burying Slope [InSlope]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
+        self.addParameter(QgsProcessingParameterField(self.SLOPE_KEY, self.tr("Burying Slope [InSlope]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))        
+                
+        self.addAdvancedParameter(QgsProcessingParameterEnum(self.SPACING_KEY, self.tr('Specify Drain Spacing [ft]'), options=[self.tr("Single Spacing Value"),self.tr("Multiple Spacing Values")], defaultValue=0))
         
-        self.addParameter(QgsProcessingParameterNumber(self.SPACING_KEY, self.tr('Specify Drain Spacing [ft]'), type=QgsProcessingParameterNumber.Double, maxValue=200.0, defaultValue=100.0))
+        self.addAdvancedParameter(QgsProcessingParameterNumber(self.SINGLE_KEY, self.tr('SINGLE: Assign Unique Value [ft]'), type=QgsProcessingParameterNumber.Double, maxValue=200.0, defaultValue=80, optional = True))
+        
+        self.addAdvancedParameter(QgsProcessingParameterField(self.MULTIPLE_KEY, self.tr("MULTIPLE: Assign Different Values [ft]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None, optional=True))   
         
         self.addParameter(QgsProcessingParameterEnum(self.PIPE_KEY, self.tr('Select Pipe Material'), options=[self.tr("Single Wall"),self.tr("Smooth Wall"),self.tr("Clay or Concrete")], defaultValue=0))
         
@@ -160,9 +167,9 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterNumber(self.ASS_INTENS_KEY, self.tr('E: others = Assign Intensity [inch/day]'), type=QgsProcessingParameterNumber.Double, maxValue=100.0, defaultValue=2.50, optional = True))
         self.addParameter(QgsProcessingParameterBoolean(self.USE_ASS_KEY, self.tr('Use Assigned Value'), defaultValue=False))
 
-        self.addAdvancedParameter(QgsProcessingParameterEnum(self.COFF_KEY, self.tr('Assign Drainage Coefficient [inch/day]'), options=[self.tr("By System [internal]"),self.tr("By Line Segments [self]"),self.tr("By Tile Orders [self]")], defaultValue=0))
-        self.addAdvancedParameter(QgsProcessingParameterField(self.SEG_COFF_KEY, self.tr("Line Segment Coefficient Field Name (if \"By Line Segments [self]\" selected)"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None, optional=True))
+        self.addAdvancedParameter(QgsProcessingParameterEnum(self.COFF_KEY, self.tr('Assign Drainage Coefficient [inch/day]'), options=[self.tr("By System [internal]"),self.tr("By Tile Orders [self]"),self.tr("By Line Segments [self]")], defaultValue=0))
         self.addAdvancedParameter(QgsProcessingParameterString(self.ORDER_COFF_KEY, self.tr("Order Coefficient separate by ',' (if \"By TIle Orders [self]\" selected)"), optional=True))
+        self.addAdvancedParameter(QgsProcessingParameterField(self.SEG_COFF_KEY, self.tr("Line Segment Coefficient Field Name (if \"By Line Segments [self]\" selected)"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None, optional=True))        
 
         self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Network Pipe Sizings'), createByDefault=True, defaultValue=None))
     
@@ -173,9 +180,12 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
             return intensity * 1.25
         raise ValueError(f"Unexpected order value: {order}")
 
-    def getFlow(self, length, spacing, DCoeff):  # individual flow
-        return length * spacing * DCoeff / 12 / 24 / 60 / 60
+    def getFlow(self, length, drain_space, DCoeff):  # individual flow
+        return length * drain_space * DCoeff / 12 / 24 / 60 / 60
     
+    def getArea(self, length, drain_space):  # individual areas
+        return length * drain_space / 43560
+        
     def roughness(self, ptype, psize):
         if ptype == 0:  # single wall
             if psize <= 8:
@@ -240,7 +250,9 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
         length_id = self.parameterAsString(parameters, self.LENGTH_KEY, context)
         slope_id = self.parameterAsString(parameters, self.SLOPE_KEY, context)
 
-        spacing = self.parameterAsDouble(parameters, self.SPACING_KEY, context)
+        spacing_id = self.parameterAsEnum(parameters, self.SPACING_KEY, context)
+        spacing_s = self.parameterAsDouble(parameters, self.SINGLE_KEY, context)
+        spacing_m = self.parameterAsDouble(parameters, self.MULTIPLE_KEY, context)
         
         materials = self.parameterAsEnum(parameters, self.PIPE_KEY, context)        
         intensity = self.parameterAsEnum(parameters, self.INTENS_KEY, context)
@@ -258,7 +270,8 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
         for field in raw_fields:
             out_fields.append(QgsField(field.name(), field.type()))
         out_fields.append(QgsField(self.D_COEFF_KEY, QVariant.String))
-        out_fields.append(QgsField(self.FLOW_KEY, QVariant.String))
+        out_fields.append(QgsField(self.D_AREA_KEY, QVariant.String))
+        out_fields.append(QgsField(self.SEG_FLOW_KEY, QVariant.String))        
         out_fields.append(QgsField(self.PIPE_SIZE_KEY, QVariant.String))
         out_fields.append(QgsField(self.NOMINAL_PIPE_SIZE_KEY, QVariant.String))        
 
@@ -283,6 +296,9 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
         if len(order_coeffs_config) > 0:
             order_coeffs = [None] + list(map(lambda x : float(x.strip()), order_coeffs_config.split(',')))
         
+        seg_flow_rates = {}
+        seg_flow_areas = {}
+        
         individual_flow_rates = {}
         sources_map = {}  # string to list[string]
         dcoeffs = []
@@ -292,19 +308,26 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
             if feedback.isCanceled():
                 break
 
+            # fill drain spacing
+            order = int(feature[order_id])
+            if spacing_id == 0:  # use single value assigned
+                drain_space = int(spacing_s)           
+            else:
+                drain_space = int(feature[spacing_m]) 
+            
             # fill individual flow
             order = int(feature[order_id])
             if coff_id == 0:  # use system assigned
                 DCoeff = self.getCoeff(use_intensity, order)
             elif coff_id == 1:  # by line segment
-                DCoeff = float(feature[seg_coff_id])
-            elif coff_id == 2:
                 DCoeff = order_coeffs[order]
+            elif coff_id == 2:
+                DCoeff = float(feature[seg_coff_id])
             else:
                 raise ValueError(f"Invalid coefficient choice index {coff_id}")
             length = float(feature[length_id])
-            flow = self.getFlow(length, spacing, DCoeff)
-            individual_flow_rates[feature[linez_id]] = flow
+            flow = self.getFlow(length, drain_space, DCoeff)
+            individual_flow_rates[feature[linez_id]] = flow                      
 
             # fill source map
             tile_from = feature[linez_id]
@@ -316,47 +339,23 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
                 
             # fill dcoeffs
             dcoeffs.append(DCoeff)
-
-        flow_rates = {}
-        
-        def get_flow_rate(id):  # returns the flow rate of segment with id
-            if id in flow_rates:
-                return flow_rates[id]
-            flow_sum = individual_flow_rates[id]
-            if id in sources_map:
-                for source in sources_map[id]:
-                    flow_sum += get_flow_rate(source)
-            flow_rates[id] = flow_sum
-            return flow_sum
-                
-        # def get_flow_rate(id, visited=set()):
-            # if id in flow_rates:
-                # return flow_rates[id]
-            # if id in visited:
-                # # Handle cyclic dependencies
-                # return 0
-            # visited.add(id)
-            # flow_sum = individual_flow_rates[id]
-            # if id in sources_map:
-                # for source in sources_map[id]:
-                    # flow_sum += get_flow_rate(source, visited)
-            # flow_rates[id] = flow_sum
-            # visited.remove(id)
-            # return flow_sum
-        
+                                      
         for (n, feature) in enumerate(raw_layer.getFeatures()):
             # Stop the algorithm if cancel button has been clicked
             if feedback.isCanceled():
                 break
             # Add a feature in the sink
             outFt = QgsFeature(out_fields)
-            outFt.setGeometry(feature.geometry())
-            outFt.setAttributes(feature.attributes() + [None, None, None, None])
-
-            flow = get_flow_rate(feature[linez_id])
+            outFt.setGeometry(feature.geometry())            
+            outFt.setAttributes(feature.attributes() + [None, None, None, None, None])           
+            
+            areazy = self.getArea(feature[length_id], drain_space)
+            flowzy = self.getFlow(feature[length_id], drain_space, DCoeff)            
+                        
+            outFt[self.D_AREA_KEY] = areazy
             outFt[self.D_COEFF_KEY] = dcoeffs[n]
-            outFt[self.FLOW_KEY] = flow
-            outFt[self.PIPE_SIZE_KEY] = self.getPipeSize(flow, float(feature[slope_id]), materials)
+            outFt[self.SEG_FLOW_KEY] = flowzy                        
+            outFt[self.PIPE_SIZE_KEY] = self.getPipeSize(flowzy, float(feature[slope_id]), materials)
             outFt[self.NOMINAL_PIPE_SIZE_KEY] = self.getNominalSize(outFt[self.PIPE_SIZE_KEY])
             sink.addFeature(outFt, QgsFeatureSink.FastInsert)
             
