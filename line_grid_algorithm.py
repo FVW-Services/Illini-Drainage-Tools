@@ -63,6 +63,7 @@ from qgis.core import QgsVectorLayer
 from qgis.core import QgsLineSymbol
 from qgis.core import QgsProperty
 from qgis.core import QgsProcessingLayerPostProcessorInterface
+from qgis.core import QgsProcessingParameterVectorDestination
 
 
 from qgis.core import (edit,QgsField, QgsFeature, QgsPointXY, QgsWkbTypes, QgsGeometry, QgsFields)
@@ -119,8 +120,10 @@ class LineGridAlgorithm(QgsProcessingAlgorithm):
     def initAlgorithm(self, config=None):
         self.addParameter(QgsProcessingParameterExtent('Extent', 'Grid Extent', defaultValue=None))
         self.addParameter(QgsProcessingParameterCrs('CRS', 'Coordinate Reference System', defaultValue='EPSG:3435'))
-        self.addParameter(QgsProcessingParameterFeatureSink('LinearGrid', 'Linear Grids', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))
-        self.addParameter(QgsProcessingParameterFeatureSink('PerpendicularGrid', 'Perpendicular Grids', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))            
+        
+        self.addParameter(QgsProcessingParameterVectorDestination('LinearGrid', 'Linear Grids', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))
+        self.addParameter(QgsProcessingParameterVectorDestination('PerpendicularGrid', 'Perpendicular Grids', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))
+                
         self.addParameter(QgsProcessingParameterNumber('GridWidth', 'Horizontal Spacing', type=QgsProcessingParameterNumber.Double, minValue=0.000001, defaultValue=100))
         self.addParameter(QgsProcessingParameterNumber('GridHeight', 'Vertical Spacing', type=QgsProcessingParameterNumber.Double, minValue=0.000001, defaultValue=100))
                 

@@ -47,6 +47,7 @@ from qgis.core import QgsProcessingParameterVectorLayer
 from qgis.core import QgsProcessingParameterNumber
 from qgis.core import QgsProcessingParameterField
 from qgis.core import QgsCoordinateReferenceSystem
+from qgis.core import QgsProcessingParameterVectorDestination
 import csv
 
 
@@ -89,7 +90,7 @@ class ReadoutAlgorithm(QgsProcessingAlgorithm):
         
         Workflow: 
         1. Select a Shapefile Layer. This is a follow-up from "Routine O"
-        2. Save the output folder (optional)
+        2. Save the output folder (This is Not Optional)
         3. Click on \"Run\"
         
         
@@ -105,7 +106,7 @@ class ReadoutAlgorithm(QgsProcessingAlgorithm):
     def initAlgorithm(self, config=None):        
         
         self.addParameter(QgsProcessingParameterVectorLayer('VectorLineLayer', 'Input Vector Layer with Unique Line ID', types=[QgsProcessing.TypeVectorAnyGeometry], defaultValue=None))           
-        self.addParameter(QgsProcessingParameterFileDestination('Splitty', 'Tile Spreadsheet ReadOut', createByDefault=True, defaultValue=None))
+        self.addParameter(QgsProcessingParameterFileDestination('Splitty', 'Tile Spreadsheet ReadOut: FileName Should Be Specified', createByDefault=True, defaultValue=None))
                        
     def processAlgorithm(self, parameters, context, model_feedback):
         # Use a multistep feedback, so that individual child algorithm progress reports are adjusted for the

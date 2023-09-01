@@ -121,7 +121,7 @@ class ElevationAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterVectorLayer('LineSegmentLayer', 'Tile Lines: from Cumulative Flow Lengths', types=[QgsProcessing.TypeVectorLine], defaultValue=None))
         self.addParameter(QgsProcessingParameterField('FGHTY', 'Field to Calculate [TILE_ID]', parentLayerParameterName = 'LineSegmentLayer', type = QgsProcessingParameterField.Any,)) 
         self.addParameter(QgsProcessingParameterCrs('CRS', 'Coordinate Reference System', defaultValue='EPSG:3435'))
-        self.addParameter(QgsProcessingParameterFeatureSink('FinalFields', 'Final Reference Fields', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))
+        self.addParameter(QgsProcessingParameterVectorDestination('FinalFields', 'Final Reference Fields', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))
         self.addParameter(QgsProcessingParameterVectorDestination('EndpointElevations', 'End Point Elevations', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))
         self.addParameter(QgsProcessingParameterVectorDestination('TerrainProfiles', 'Network Elevation Points', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))
         self.addParameter(QgsProcessingParameterFolderDestination('Splitty', 'Network Spreadsheet', createByDefault=True, defaultValue=None))
@@ -202,7 +202,7 @@ class ElevationAlgorithm(QgsProcessingAlgorithm):
         results['ExtractElevationPoints'] = outputs['ExtractElevationPoints']['RESULT']
         
         # Line Terrain Profiles
-        line_params = {'DEM': parameters['MDFT'], 'LINES': results['RetainFields'], 'NAME': parameters['FGHTY'], 'PROFILE': QgsProcessing.TEMPORARY_OUTPUT}
+        line_params = {'DEM': parameters['MDFT'], 'LINES': results['RetainFields'], 'NAME': parameters['FGHTY'], 'PROFILE': QgsProcessing.TEMPORARY_OUTPUT, 'PROFILES': QgsProcessing.TEMPORARY_OUTPUT}
                         
         feedback.setCurrentStep(7)
         if feedback.isCanceled():

@@ -42,6 +42,7 @@ from qgis.core import QgsProcessingParameterFeatureSink
 from qgis.core import QgsProcessingParameterBoolean
 from qgis.core import QgsProcessingParameterVectorLayer
 from qgis.core import QgsProcessingParameterNumber
+from qgis.core import QgsProcessingParameterVectorDestination
 
 import processing
 
@@ -107,7 +108,7 @@ class TileStatisticsAlgorithm(QgsProcessingAlgorithm):
     
     def initAlgorithm(self, config=None):
         self.addParameter(QgsProcessingParameterRasterLayer('MDT', 'Original Field DEM', defaultValue=None))
-        self.addParameter(QgsProcessingParameterFeatureSink('TileStats', 'Tile Statistics', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))
+        self.addParameter(QgsProcessingParameterVectorDestination('TileStats', 'Tile Statistics', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))
         self.addParameter(QgsProcessingParameterBoolean('VERBOSE_LOG', 'Verbose logging', optional=True, defaultValue=True))
         self.addParameter(QgsProcessingParameterVectorLayer('VectorLineLayer', 'Tile Network Orders', types=[QgsProcessing.TypeVectorLine], defaultValue=None))
         self.addParameter(QgsProcessingParameterNumber('SegmentLength', 'Line Segment (=> 5 times pixel size)', type=QgsProcessingParameterNumber.Double, maxValue=1.79769e+308, defaultValue=5000))

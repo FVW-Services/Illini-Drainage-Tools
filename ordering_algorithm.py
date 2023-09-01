@@ -44,6 +44,7 @@ from qgis.core import QgsProcessingParameterBoolean
 from qgis.core import QgsProcessingParameterVectorLayer
 from qgis.core import QgsProcessingParameterNumber
 from qgis.core import QgsProcessingParameterField
+from qgis.core import QgsProcessingParameterVectorDestination
 
 import processing
 import sys
@@ -114,7 +115,7 @@ class OrderingAlgorithm(QgsProcessingAlgorithm):
         
         self.addParameter(QgsProcessingParameterField(self.LINE_FIELD_KEY, self.tr("Flow_Line"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
         
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Tile Network Orders')))
+        self.addParameter(QgsProcessingParameterVectorDestination(self.OUTPUT, self.tr('Tile Network Orders')))
                       
     def processAlgorithm(self, parameters, context, feedback):
          

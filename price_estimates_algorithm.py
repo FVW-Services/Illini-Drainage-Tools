@@ -74,6 +74,7 @@ from qgis.core import QgsProperty
 from qgis.core import QgsAggregateCalculator
 from qgis.core import QgsWkbTypes
 from qgis.core import QgsProject
+from qgis.core import QgsProcessingParameterVectorDestination
 
 from qgis.core import QgsLineString, QgsPoint
 
@@ -154,9 +155,9 @@ class PriceEstimatesAlgorithm(QgsProcessingAlgorithm):
                 
         self.addParameter(QgsProcessingParameterField(self.PIPE_KEY, self.tr("Pipe Sizes [NOMINAL_SIZE]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))       
         
-        self.addParameter(QgsProcessingParameterField(self.LENGTH_KEY, self.tr("Pipe Length [LENGTH]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
+        self.addParameter(QgsProcessingParameterField(self.LENGTH_KEY, self.tr("Pipe Length [LENGTH]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))               
                        
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT_LAYER, self.tr('Price Estimations for Sized Pipes [$ Per Foot Length]'), type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))       
+        self.addParameter(QgsProcessingParameterVectorDestination(self.OUTPUT_LAYER, self.tr('Price Estimations for Sized Pipes [$ Per Foot Length]'), type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))       
     
                  
     def processAlgorithm(self, parameters, context, feedback):       

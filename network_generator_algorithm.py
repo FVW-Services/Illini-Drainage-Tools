@@ -39,6 +39,7 @@ from qgis.core import *
 import processing
 import numpy as np
 from collections import Counter
+from qgis.core import QgsProcessingParameterVectorDestination
 
 import time
 
@@ -94,7 +95,7 @@ class NetworkGeneratorAlgorithm(QgsProcessingAlgorithm):
        
     def initAlgorithm(self, config=None):        
         self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LINE, self.tr('Rebuilt Tile Lines with Fixed Geometries'), [QgsProcessing.TypeVectorLine]))      
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr('Tile Network')))    
+        self.addParameter(QgsProcessingParameterVectorDestination(self.OUTPUT, self.tr('Tile Network')))    
         
     def processAlgorithm(self, parameters, context, feedback):
                                                            

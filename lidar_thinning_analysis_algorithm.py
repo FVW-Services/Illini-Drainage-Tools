@@ -46,6 +46,9 @@ from qgis.core import QgsProcessingParameterVectorLayer
 from qgis.core import QgsProcessingParameterNumber
 from qgis.core import QgsProcessingParameterField
 
+from qgis.core import QgsProcessingParameterVectorDestination
+from qgis.core import QgsProcessingLayerPostProcessorInterface
+
 import processing
 import sys
 import csv
@@ -104,98 +107,124 @@ class LidarThinningAnalysisAlgorithm(QgsProcessingAlgorithm):
     def initAlgorithm(self, config=None):        
         self.addParameter(QgsProcessingParameterRasterLayer('IDT', 'Field LiDAR DEM', defaultValue=None))
         self.addParameter(QgsProcessingParameterVectorLayer('VectorBound', 'Field Boundary', types=[QgsProcessing.TypeVectorPolygon], defaultValue=None))
-        self.addParameter(QgsProcessingParameterNumber('PixelSize', 'Desired Pixel Size (ft)', type=QgsProcessingParameterNumber.Double, maxValue=100.0, defaultValue=20))        
+        self.addParameter(QgsProcessingParameterNumber('PixelSize', 'Desired Pixel Size (ft)', type=QgsProcessingParameterNumber.Double, maxValue=100.0, defaultValue=20))
+        
         self.addParameter(QgsProcessingParameterRasterDestination('Resampled', 'Resampled Raster Layer', createByDefault=True, defaultValue=None))
-       
-        self.addParameter(QgsProcessingParameterFeatureSink('BoundaryProfiles', 'Boundary Points Profile', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))      
-        self.addParameter(QgsProcessingParameterFeatureSink('InnerPointProfiles', 'Inner Points Profile', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))
-        self.addParameter(QgsProcessingParameterFeatureSink('MergePoints', 'All Generated Field Points', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))  
-                                  
-    def processAlgorithm(self, parameters, context, model_feedback):
-        # Use a multistep feedback, so that individual child algorithm progress reports are adjusted for the
-        # overall progress through the model    
-        feedback = QgsProcessingMultiStepFeedback(9, model_feedback)
-        results = {}
-        outputs = {}               
-                      
+        self.addParameter(QgsProcessingParameterVectorDestination('BoundaryProfiles', 'Boundary Points Profile', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))
+        self.addParameter(QgsProcessingParameterVectorDestination('InnerPointProfiles', 'Inner Points Profile', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))
+        self.addParameter(QgsProcessingParameterVectorDestination('MergePoints', 'All Generated Field Points', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))
+                                                   
+    def processAlgorithm(self, parameters, context, feedback):
+                                       
         # Clip Raster DEM Layer Out        
-        alg_params = {'INPUT': parameters['IDT'], 'POLYGONS': parameters['VectorBound'], 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}        
-                
-        outputs['ClipRasterWithPolygon'] = processing.run('saga:cliprasterwithpolygon', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #1
+        clip_params = processing.run('saga:cliprasterwithpolygon',
+        {'INPUT': parameters['IDT'], 'POLYGONS': parameters['VectorBound'], 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}, 
+        context=context, feedback=feedback, is_child_algorithm=True) #1
         
-        feedback.setCurrentStep(1)
-        if feedback.isCanceled():
-            return {}
-            
+        results_a = clip_params['OUTPUT']
+                           
         # Resample Clipped Raster DEM      
-        alg_params = {'INPUT': outputs['ClipRasterWithPolygon']['OUTPUT'], 'SCALE_UP': 0, 'SCALE_DOWN': 0, 'TARGET_USER_SIZE': parameters['PixelSize'], 'TARGET_USER_FITS': 1, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
+        resam_params = processing.run('saga:resampling',
+        {'INPUT': results_a, 'SCALE_UP': 0, 'SCALE_DOWN': 0, 'TARGET_USER_SIZE': parameters['PixelSize'], 'TARGET_USER_FITS': 1, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT},
+        context=context, feedback=feedback, is_child_algorithm=True) #2                     
         
-        outputs['Resampling'] = processing.run('saga:resampling', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #2                     
-        
-        feedback.setCurrentStep(2)
-        if feedback.isCanceled():
-            return {}
+        results_b = resam_params['OUTPUT']
 
         # Convert SAGA to Giff File        
-        alg_params = {'INPUT': outputs['Resampling']['OUTPUT'], 'OUTPUT': parameters['Resampled']}               
-                
-        outputs['Translate'] = processing.run('gdal:translate', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #3
+        trans_params = processing.run('gdal:translate', 
+        {'INPUT': results_b, 'OUTPUT': parameters['Resampled']}, 
+        context=context, feedback=feedback, is_child_algorithm=True) #3
                       
-        feedback.setCurrentStep(3)
-        if feedback.isCanceled():
-            return {}       
-                
-        # Polygons to Lines        
-        alg_params = {'INPUT': parameters['VectorBound'], 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}               
-                
-        outputs['PolygonsToLines'] = processing.run('native:polygonstolines', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #4                
+        results_c = trans_params['OUTPUT']
         
-        feedback.setCurrentStep(4)
-        if feedback.isCanceled():
-            return {}
+        # Polygons to Lines        
+        polylines_params = processing.run('native:polygonstolines', 
+        {'INPUT': parameters['VectorBound'], 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}, 
+        context=context, feedback=feedback, is_child_algorithm=True) #4                
+        
+        results_d = polylines_params['OUTPUT']
         
         # Generate Points Pixel Centroids along Boundary Line       
-        alg_params = {'INPUT_RASTER': parameters['IDT'], 'INPUT_VECTOR': outputs['PolygonsToLines']['OUTPUT'], 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}               
-                
-        outputs['PointsAlongLines'] = processing.run('qgis:generatepointspixelcentroidsalongline', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #5                
+        pointsalong_params = processing.run('qgis:generatepointspixelcentroidsalongline', 
+        {'INPUT_RASTER': parameters['IDT'], 'INPUT_VECTOR': results_d, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}, 
+        context=context, feedback=feedback, is_child_algorithm=True) #5                
         
-        feedback.setCurrentStep(5)
-        if feedback.isCanceled():
-            return {}
+        results_e = pointsalong_params['OUTPUT']
         
         # Export Boundary Points Profile to CSV File        
-        alg_params = {'INPUT': outputs['PointsAlongLines']['OUTPUT'], 'CRS': 'EPSG4326', 'OUTPUT': parameters['BoundaryProfiles']}               
+        bound_params = processing.run('native:addxyfields', 
+        {'INPUT': results_e, 'CRS': 'EPSG4326', 'OUTPUT': parameters['BoundaryProfiles']}, 
+        context=context, feedback=feedback, is_child_algorithm=True) #6
                 
-        outputs['AddFields'] = processing.run('native:addxyfields', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #6
-                
-        feedback.setCurrentStep(6)
-        if feedback.isCanceled():
-           return {} 
+        results_f = bound_params['OUTPUT']
            
         # Convert Pixel Centroid Layer       
-        alg_params = {'INPUT_RASTER': outputs['Resampling']['OUTPUT'], 'RASTER_BAND': 1, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}         
-                
-        outputs['PixelsToPoints'] = processing.run('qgis:pixelstopoints', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #7                
+        cent_params = processing.run('qgis:pixelstopoints', 
+        {'INPUT_RASTER': results_b, 'RASTER_BAND': 1, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}, 
+        context=context, feedback=feedback, is_child_algorithm=True) #7                
         
-        feedback.setCurrentStep(7)
-        if feedback.isCanceled():
-            return {}                 
+        results_g = cent_params['OUTPUT']                 
                                                   
         # Export Inner Points Profile to CSV File        
-        alg_params = {'INPUT': outputs['PixelsToPoints']['OUTPUT'], 'CRS': 'EPSG4326', 'OUTPUT': parameters['InnerPointProfiles']}               
-                
-        outputs['AddxyFields'] = processing.run('native:addxyfields', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #8
+        csv_params = processing.run('native:addxyfields', 
+        {'INPUT': results_g, 'CRS': 'EPSG4326', 'OUTPUT': parameters['InnerPointProfiles']}, 
+        context=context, feedback=feedback, is_child_algorithm=True) #8
         
-        feedback.setCurrentStep(8)
-        if feedback.isCanceled():
-            return {}            
+        results_h = csv_params['OUTPUT']           
                 
         # Union of Line and Point Layers        
-        alg_params = {'INPUT': outputs['PointsAlongLines']['OUTPUT'], 'OVERLAY': outputs['PixelsToPoints']['OUTPUT'], 'OUTPUT': parameters['MergePoints']}               
+        union_params = processing.run('native:union', 
+        {'INPUT': results_e, 'OVERLAY': results_g, 'OUTPUT': parameters['MergePoints']}, 
+        context=context, feedback=feedback, is_child_algorithm=True) #9             
+         
+        results_i = union_params['OUTPUT']
+        
+        global renamer_a       
+        renamer_a = Renamer_1('New Thinned Raster Layer')
+        context.layerToLoadOnCompletionDetails(results_c).setPostProcessor(renamer_a)
+        
+        global renamer_b       
+        renamer_b = Renamer_2('Boundary Pixel Points')
+        context.layerToLoadOnCompletionDetails(results_f).setPostProcessor(renamer_b)
+        
+        global renamer_c       
+        renamer_c = Renamer_3('Inner Pixel Points')
+        context.layerToLoadOnCompletionDetails(results_h).setPostProcessor(renamer_c)
+        
+        global renamer_d       
+        renamer_d = Renamer_4('Merged Points Layer')
+        context.layerToLoadOnCompletionDetails(results_i).setPostProcessor(renamer_d)
                 
-        outputs['Union'] = processing.run('native:union', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #9             
-                                             
-        results['MergePoints'] = outputs['Union']['OUTPUT']
-        return results 
+        return {'Resampled': results_c, 'BoundaryProfiles': results_f, 'InnerPointProfiles': results_h, 'MergePoints': results_i}
 
-    
+class Renamer_1(QgsProcessingLayerPostProcessorInterface):
+    def __init__(self, layer_name):
+        self.name = layer_name
+        super().__init__()
+        
+    def postProcessLayer(self, layer, context, feedback):
+        layer.setName(self.name)
+        
+class Renamer_2(QgsProcessingLayerPostProcessorInterface):
+    def __init__(self, layer_name):
+        self.name = layer_name
+        super().__init__()
+        
+    def postProcessLayer(self, layer, context, feedback):
+        layer.setName(self.name)
+        
+class Renamer_3(QgsProcessingLayerPostProcessorInterface):
+    def __init__(self, layer_name):
+        self.name = layer_name
+        super().__init__()
+        
+    def postProcessLayer(self, layer, context, feedback):
+        layer.setName(self.name)
+        
+class Renamer_4(QgsProcessingLayerPostProcessorInterface):
+    def __init__(self, layer_name):
+        self.name = layer_name
+        super().__init__()
+        
+    def postProcessLayer(self, layer, context, feedback):
+        layer.setName(self.name)

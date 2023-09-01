@@ -44,6 +44,7 @@ from qgis.core import QgsProcessingParameterBoolean
 from qgis.core import QgsProcessingParameterVectorLayer
 from qgis.core import QgsProcessingParameterNumber
 from qgis.core import QgsProcessingParameterField
+from qgis.core import QgsProcessingParameterVectorDestination
 
 import processing
 
@@ -107,8 +108,9 @@ class ComplexMainsFixAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterNumber('StartPoints', 'Extend Starting Lines', type=QgsProcessingParameterNumber.Double, maxValue=100.0, defaultValue=5.00)) 
         self.addParameter(QgsProcessingParameterNumber('EndPoints', 'Extend Ending Lines', type=QgsProcessingParameterNumber.Double, maxValue=100.0, defaultValue=5.00))        
         self.addParameter(QgsProcessingParameterCrs('CRS', 'Coordinate Reference System', defaultValue='EPSG:3435'))
-        self.addParameter(QgsProcessingParameterFeatureSink('LineFixes', 'New Line Nodes', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))       
-                               
+        
+        self.addParameter(QgsProcessingParameterVectorDestination('LineFixes', 'New Line Nodes', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))
+            
     def processAlgorithm(self, parameters, context, model_feedback):
         # Use a multi-step feedback, so that individual child algorithm progress reports are adjusted for the
         # overall progress through the model

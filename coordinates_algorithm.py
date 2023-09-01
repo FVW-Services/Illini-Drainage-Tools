@@ -47,6 +47,8 @@ from qgis.core import QgsProcessingParameterNumber
 from qgis.core import QgsProcessingParameterField
 from qgis.core import QgsProcessingParameterCrs
 
+from qgis.core import QgsProcessingParameterVectorDestination
+from qgis.core import QgsProcessingLayerPostProcessorInterface
 
 import processing
 
@@ -66,41 +68,41 @@ class CoordinatesAlgorithm(QgsProcessingAlgorithm):
         
         self.addParameter(QgsProcessingParameterCrs('CRS', 'Targeted CRS', defaultValue='EPSG:3435')) 
         
-        self.addParameter(QgsProcessingParameterRasterDestination('RasterNew', 'Raster in Desired CRS', createByDefault=True, defaultValue=None))        
-        self.addParameter(QgsProcessingParameterFeatureSink('VectorNew', 'Vector in Desired CRS', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))
+        self.addParameter(QgsProcessingParameterRasterDestination('RasterNew', 'Raster in Desired CRS', createByDefault=True, defaultValue=None))      
+        self.addParameter(QgsProcessingParameterVectorDestination('VectorNew', 'Vector in Desired CRS', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))
                        
-    def processAlgorithm(self, parameters, context, model_feedback):
-        # Use a multistep feedback, so that individual child algorithm progress reports are adjusted for the
-        # overall progress through the model    
-        feedback = QgsProcessingMultiStepFeedback(2, model_feedback)
-        results = {}
-        outputs = {}                               
-                    
+    def processAlgorithm(self, parameters, context, feedback):
+                                     
         # Raster Coordinates Assignation
-        alg_params = {'INPUT': parameters['MDT'], 'TARGET_CRS': parameters['CRS'], 'RESAMPLING': 0, 'DATA_TYPE': 0, 'OUTPUT': parameters['RasterNew']}        
+        rast_params = processing.run('gdal:warpreproject',
+        {'INPUT': parameters['MDT'], 
+        'TARGET_CRS': parameters['CRS'], 
+        'RESAMPLING': 0, 
+        'DATA_TYPE': 0, 
+        'OUTPUT': parameters['RasterNew']}, 
+        context=context, feedback=feedback, is_child_algorithm=True) #1
         
-        outputs['RasterCRS'] = processing.run('gdal:warpreproject', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #1
-
-        feedback.setCurrentStep(1)
-        if feedback.isCanceled():
-            return {}
-
-        # # Vector Coordinates Assignation
-        # alg_params = {'INPUT': parameters['VectorLineLayer'], 'CRS': parameters['CRS'], 'OUTPUT': parameters['VectorNew']}
-        
-        # outputs['VectorCRS'] = processing.run('native:assignprojection', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #2
-                        
-        # results['VectorNew'] = outputs['VectorCRS']['OUTPUT']
-        # return results
-        
+        results_a = rast_params['OUTPUT']
+      
         # Vector Coordinates Assignation
-        alg_params = {'INPUT': parameters['VectorLineLayer'], 'TARGET_CRS': parameters['CRS'], 'OUTPUT': parameters['VectorNew']}
+        vect_params = processing.run('native:reprojectlayer', 
+        {'INPUT': parameters['VectorLineLayer'], 
+        'TARGET_CRS': parameters['CRS'], 
+        'OUTPUT': parameters['VectorNew']}, 
+        context=context, feedback=feedback, is_child_algorithm=True) #2
         
-        outputs['VectorCRS'] = processing.run('native:reprojectlayer', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #2
-                        
-        results['VectorNew'] = outputs['VectorCRS']['OUTPUT']
-        return results
-
+        results_b = vect_params['OUTPUT']
+                
+        global renamer_a       
+        renamer_a = Renamer_1('New Raster Layer')
+        context.layerToLoadOnCompletionDetails(results_a).setPostProcessor(renamer_a)
+        
+        global renamer_b       
+        renamer_b = Renamer_2('New Vector Layer')
+        context.layerToLoadOnCompletionDetails(results_b).setPostProcessor(renamer_b)
+        
+        return {'VectorNew': results_a, 'RasterNew': results_b}
+        
     def tr(self, string):
         return QCoreApplication.translate('Processing', string)
         
@@ -142,4 +144,18 @@ class CoordinatesAlgorithm(QgsProcessingAlgorithm):
         return "https://publish.illinois.edu/illinoisdrainageguide/files/2022/06/PublicAccess.pdf"   
     
     
-     
+class Renamer_1(QgsProcessingLayerPostProcessorInterface):
+    def __init__(self, layer_name):
+        self.name = layer_name
+        super().__init__()
+        
+    def postProcessLayer(self, layer, context, feedback):
+        layer.setName(self.name)
+        
+class Renamer_2(QgsProcessingLayerPostProcessorInterface):
+    def __init__(self, layer_name):
+        self.name = layer_name
+        super().__init__()
+        
+    def postProcessLayer(self, layer, context, feedback):
+        layer.setName(self.name)    

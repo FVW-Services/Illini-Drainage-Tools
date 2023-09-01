@@ -44,6 +44,7 @@ from qgis.core import QgsProcessingParameterBoolean
 from qgis.core import QgsProcessingParameterVectorLayer
 from qgis.core import QgsProcessingParameterNumber
 from qgis.core import QgsProcessingParameterField
+from qgis.core import QgsProcessingParameterVectorDestination
 
 import processing
 
@@ -101,7 +102,7 @@ class FixLineTopologyAlgorithm(QgsProcessingAlgorithm):
     def initAlgorithm(self, config=None):
         
         self.addParameter(QgsProcessingParameterVectorLayer('VectorPointLayer', 'New Line Nodes', types=[QgsProcessing.TypeVectorPoint], defaultValue=None))
-        self.addParameter(QgsProcessingParameterFeatureSink('LineFixes', 'Fixed Line Topology', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, supportsAppend=True, defaultValue=None))        
+        self.addParameter(QgsProcessingParameterVectorDestination('LineFixes', 'Fixed Line Topology', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))        
         self.addParameter(QgsProcessingParameterField('FAGH', 'Vertex Part Index', parentLayerParameterName = 'VectorPointLayer', type = QgsProcessingParameterField.Any)) 
         self.addParameter(QgsProcessingParameterField('FGH', 'Group Vertex Part', parentLayerParameterName = 'VectorPointLayer', type = QgsProcessingParameterField.Any))         
         
