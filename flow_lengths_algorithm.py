@@ -59,7 +59,7 @@ class FlowLengthsAlgorithm(QgsProcessingAlgorithm):
         return FlowLengthsAlgorithm()
         
     def name(self):
-        return 'k. Network Flow Lengths'
+        return 'i. Network Flow Lengths'
 
     def displayName(self):
         return self.tr(self.name())
@@ -79,7 +79,7 @@ class FlowLengthsAlgorithm(QgsProcessingAlgorithm):
         return self.tr("""This tool calculates the cummulative lengths for all connecting line segments, upstream to downstream of the network layout.
                 
         Workflow: 
-        1. Select a Vector Line layer that is Topologically Sound. This is a follow-up from "Routine J"
+        1. Select a Vector Line layer that is Topologically Sound. This is a follow-up from "Routine H"
         2. Select the Reference Field for the Cummulative Calculation of Segment lengths along the Tile Flow Line
         3. Select the respective Field IDs that represents the attribute tables from the displayed line layer
         4. Save the output file (optional)        
@@ -97,7 +97,7 @@ class FlowLengthsAlgorithm(QgsProcessingAlgorithm):
         
     
     def initAlgorithm(self, config=None):
-        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER, self.tr('Tile Network Statistics'), [QgsProcessing.TypeVectorLine], defaultValue=None))
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER, self.tr('Tile Network: with Reference Elevation Field Statistics'), [QgsProcessing.TypeVectorLine], defaultValue=None))
         
         self.addParameter(QgsProcessingParameterField(self.INPUT_FIELD_CALC, self.tr("True_Length: LENGTH"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Numeric, defaultValue=None))
         

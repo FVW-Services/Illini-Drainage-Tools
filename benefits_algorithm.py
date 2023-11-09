@@ -92,7 +92,7 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
         return BenefitsAlgorithm()
         
     def name(self):        
-        return 'n. Network Pipe Sizing'
+        return 'k. Network Pipe Sizing'
 
     def displayName(self):        
         return self.tr(self.name())
@@ -112,7 +112,7 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
         return self.tr( """This tool is used to determine final pipe sizes for the individual tile networks. 
         
         Workflow:         
-        1. Select the "Buried Elevation Depths" vector layer. This is a follow-up from "Routine M"
+        1. Select the "Buried Elevation Depths" vector layer. This is a follow-up from "Routine J"
         2. Select the respective Field IDs that represents the attribute tables from the displayed line layer
         3. Select the burying slope to use(usually, the "InSlope"). Compare results from using the "OutSlope".
         4. Specify The desired drain spacing for the system. This is usually the same spacing used for designing the system.

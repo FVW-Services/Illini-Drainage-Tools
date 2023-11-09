@@ -30,27 +30,34 @@ __copyright__ = '(C) 2022 by FALASY  Anamelechi'
 
 __revision__ = '$Format:%H$'
 
+# Stage 1
 from qgis.core import QgsProcessingProvider
+
+from .coordinates_algorithm import CoordinatesAlgorithm
 from .lidar_thinning_analysis_algorithm import LidarThinningAnalysisAlgorithm
 from .plotting_field_laylines_algorithm import PlottingFieldLaylinesAlgorithm
 from .line_grid_algorithm import LineGridAlgorithm
-from .complex_mains_fix_algorithm import ComplexMainsFixAlgorithm
-from .fix_line_topology_algorithm import FixLineTopologyAlgorithm
+
+# Stage 2
+from .geometrically_fixed_algorithm import GeometricallyFixedAlgorithm
 from .network_generator_algorithm import NetworkGeneratorAlgorithm
-from .tile_statistics_algorithm import TileStatisticsAlgorithm
-from .flow_algorithm import FlowAlgorithm
-from .ordering_algorithm import OrderingAlgorithm
-from .coordinates_algorithm import CoordinatesAlgorithm
-from .elevation_algorithm import ElevationAlgorithm
-from .benefits_algorithm import BenefitsAlgorithm
-from .readout_algorithm import ReadoutAlgorithm
-from .bury_algorithm import BuryAlgorithm
+from .network_flow_ordering_algorithm import NetworkFlowOrderingAlgorithm
+from .network_elevation_algorithm import NetworkElevationAlgorithm
 from .flow_lengths_algorithm import FlowLengthsAlgorithm
+
+# Stage 3
+from .bury_algorithm import BuryAlgorithm
+from .benefits_algorithm import BenefitsAlgorithm
 from .price_estimates_algorithm import PriceEstimatesAlgorithm
+from .readout_algorithm import ReadoutAlgorithm
 
 
-#from .lines_terrain_profile_algorithm import LinesTerrainProfileAlgorithm
-#from .illini_drainage_tools_algorithm import IlliniDrainageToolsAlgorithm
+# from .complex_mains_fix_algorithm import ComplexMainsFixAlgorithm
+# from .fix_line_topology_algorithm import FixLineTopologyAlgorithm
+# from .tile_statistics_algorithm import TileStatisticsAlgorithm
+# from .flow_algorithm import FlowAlgorithm
+# from .ordering_algorithm import OrderingAlgorithm
+# from .elevation_algorithm import ElevationAlgorithm
 
 import os
 import inspect
@@ -78,22 +85,30 @@ class IlliniDrainageToolsProvider(QgsProcessingProvider):
         """
         Loads all algorithms belonging to this provider.
         """
+        
+        self.addAlgorithm(CoordinatesAlgorithm())
         self.addAlgorithm(LidarThinningAnalysisAlgorithm())
         self.addAlgorithm(PlottingFieldLaylinesAlgorithm())
         self.addAlgorithm(LineGridAlgorithm())        
-        self.addAlgorithm(ComplexMainsFixAlgorithm())
-        self.addAlgorithm(FixLineTopologyAlgorithm())                
-        self.addAlgorithm(NetworkGeneratorAlgorithm())        
-        self.addAlgorithm(TileStatisticsAlgorithm())
-        self.addAlgorithm(FlowAlgorithm())
-        self.addAlgorithm(OrderingAlgorithm())
-        self.addAlgorithm(CoordinatesAlgorithm())
-        self.addAlgorithm(FlowLengthsAlgorithm())
-        self.addAlgorithm(ElevationAlgorithm())        
-        self.addAlgorithm(BuryAlgorithm())
-        self.addAlgorithm(ReadoutAlgorithm())
+                       
+        self.addAlgorithm(NetworkGeneratorAlgorithm())
+        self.addAlgorithm(GeometricallyFixedAlgorithm()) 
+        self.addAlgorithm(NetworkFlowOrderingAlgorithm())
+        self.addAlgorithm(NetworkElevationAlgorithm())
+        self.addAlgorithm(FlowLengthsAlgorithm())        
+                
+        self.addAlgorithm(BuryAlgorithm())        
         self.addAlgorithm(BenefitsAlgorithm())
-        self.addAlgorithm(PriceEstimatesAlgorithm())                        
+        self.addAlgorithm(PriceEstimatesAlgorithm())
+        self.addAlgorithm(ReadoutAlgorithm())
+        
+        # self.addAlgorithm(ComplexMainsFixAlgorithm())
+        # self.addAlgorithm(FixLineTopologyAlgorithm())
+        # self.addAlgorithm(TileStatisticsAlgorithm())
+        # self.addAlgorithm(FlowAlgorithm())
+        # self.addAlgorithm(OrderingAlgorithm())      
+        # self.addAlgorithm(ElevationAlgorithm())        
+           
 
     def id(self):
         """

@@ -89,7 +89,7 @@ class BuryAlgorithm(QgsProcessingAlgorithm):
         return BuryAlgorithm()
         
     def name(self):        
-        return 'm. Tile Burying System'
+        return 'j. Tile Burying System'
 
     def displayName(self):        
         return self.tr(self.name())
@@ -109,7 +109,7 @@ class BuryAlgorithm(QgsProcessingAlgorithm):
         return self.tr( """This tool is used to determine the elevation depths for burying the entire tile networks. 
         
         Workflow:         
-        1. Select the "Retained Reference Fields" vector layer. This is a follow-up from "Routine L"
+        1. Select the "Retained Reference Fields" vector layer. This is a follow-up from "Routine I"
         2. Specify the respective burying parameters
         3. Make a decision based on the field terrain using the Constant Slope Option 
         4. Save the output file (optional)        
@@ -125,7 +125,7 @@ class BuryAlgorithm(QgsProcessingAlgorithm):
         
         
     def initAlgorithm(self, config):
-        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER, self.tr('Tile Network: with Retained Reference Fields'), [QgsProcessing.TypeVectorPoint, QgsProcessing.TypeVectorLine], defaultValue=None)) 
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER, self.tr('Tile Network: from Cumulative Flow Lengths'), [QgsProcessing.TypeVectorPoint, QgsProcessing.TypeVectorLine], defaultValue=None)) 
                 
         self.addParameter(QgsProcessingParameterField(self.SEGMENT_KEY, self.tr("Burying Segments [BURY_ORDER]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
         self.addParameter(QgsProcessingParameterField(self.DIST_KEY, self.tr("Distance Between Points [LENGTH]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))       

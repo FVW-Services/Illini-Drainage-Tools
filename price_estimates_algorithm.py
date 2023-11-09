@@ -114,7 +114,7 @@ class PriceEstimatesAlgorithm(QgsProcessingAlgorithm):
         return PriceEstimatesAlgorithm()
         
     def name(self):
-        return 'o. Sized Pipe Estimations'
+        return 'l. Sized Pipe Estimations'
 
     def displayName(self):
         return self.tr(self.name())
@@ -134,7 +134,7 @@ class PriceEstimatesAlgorithm(QgsProcessingAlgorithm):
         return self.tr("""This Tool generates an estimated price for the entire network of sized pipes, depending on the diameter, length and kind of pipe materials.
         
         Workflow: 
-        1. Select a Line Layer (e.g. the "Network Pipe Sizings"). This is a follow-up from "Routine M"
+        1. Select a Line Layer (e.g. the "Network Pipe Sizings"). This is a follow-up from "Routine K"
         2. Select the two fields used for generating the price estimations (that is, the "NOMINAL" and "LENGTH")
         3. Save the output files (optional)
         4. Click on \"Run\"

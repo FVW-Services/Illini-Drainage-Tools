@@ -56,7 +56,7 @@ class NetworkGeneratorAlgorithm(QgsProcessingAlgorithm):
         return NetworkGeneratorAlgorithm()
         
     def name(self):
-        return 'g. Tile Network Generator'
+        return 'f. Network Flow-Path Generator'
 
     def displayName(self):
         return self.tr(self.name())
@@ -77,7 +77,7 @@ class NetworkGeneratorAlgorithm(QgsProcessingAlgorithm):
         It is the routine that serves as the "check for topologically-sound networks".
         
         Workflow: 
-        1. Select a Vector Line layer that is Topologically Sound. This is a follow-up from "Routine F"
+        1. Select a Vector Line layer that is Topologically Sound. This is a follow-up from "Routine E"
         2. On the Map Canvas, select an outlet line segment from the displayed line layer
         3. Save the output file (optional)        
         4. Click on \"Run\"
@@ -95,7 +95,7 @@ class NetworkGeneratorAlgorithm(QgsProcessingAlgorithm):
        
     def initAlgorithm(self, config=None):        
         self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LINE, self.tr('Rebuilt Tile Lines with Fixed Geometries'), [QgsProcessing.TypeVectorLine]))      
-        self.addParameter(QgsProcessingParameterVectorDestination(self.OUTPUT, self.tr('Tile Network')))    
+        self.addParameter(QgsProcessingParameterVectorDestination(self.OUTPUT, self.tr('Tile Network with Flow-Path')))    
         
     def processAlgorithm(self, parameters, context, feedback):
                                                            

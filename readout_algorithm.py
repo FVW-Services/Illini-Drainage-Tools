@@ -69,7 +69,7 @@ class ReadoutAlgorithm(QgsProcessingAlgorithm):
         return ReadoutAlgorithm()
         
     def name(self):
-        return 'p. Tile Spreadsheet ReadOut'
+        return 'm. Tile Spreadsheet ReadOut'
 
     def displayName(self):
         return self.tr(self.name())
@@ -89,12 +89,12 @@ class ReadoutAlgorithm(QgsProcessingAlgorithm):
         return self.tr("""This Tool saves the attribute features of a vector line layer by according it a unique line ID and exporting as spreadsheet readouts.
         
         Workflow: 
-        1. Select a Shapefile Layer. This is a follow-up from "Routine O"
+        1. Select a Shapefile Layer. This is a follow-up from "Routine L"
         2. Save the output folder (This is Not Optional)
         3. Click on \"Run\"
         
         
-        The script gives out an output that can be saved as a (.xlsx or .csv) file.         
+        The script gives out an output that can be saved as a (.csv, .txt, or .xlsx, etc) file.         
                 
         The help link in the Graphical User Interface (GUI) provides more information about the plugin.             
         """)    
@@ -105,16 +105,19 @@ class ReadoutAlgorithm(QgsProcessingAlgorithm):
     
     def initAlgorithm(self, config=None):        
         
-        self.addParameter(QgsProcessingParameterVectorLayer('VectorLineLayer', 'Input Vector Layer with Unique Line ID', types=[QgsProcessing.TypeVectorAnyGeometry], defaultValue=None))           
-        self.addParameter(QgsProcessingParameterFileDestination('Splitty', 'Tile Spreadsheet ReadOut: FileName Should Be Specified', createByDefault=True, defaultValue=None))
+        self.addParameter(QgsProcessingParameterVectorLayer('VectorLineLayer', 'Input Vector Layer with Unique Line ID', types=[QgsProcessing.TypeVectorAnyGeometry], defaultValue=None))
+        self.addParameter(QgsProcessingParameterField('FGHTY', 'Unique Field ID', parentLayerParameterName = 'VectorLineLayer', type = QgsProcessingParameterField.Any,))
+        
+        self.addParameter(QgsProcessingParameterFileDestination('Splitty', 'Tile Spreadsheet ReadOut: FileName Should Be Specified', createByDefault=True, defaultValue=None, fileFilter='CSV files (*.csv);;Text files (*.txt)'))
+
+        self.addParameter(QgsProcessingParameterFolderDestination('Spready', 'Network Spreadsheet', createByDefault=True, defaultValue=None))
                        
-    def processAlgorithm(self, parameters, context, model_feedback):
-        # Use a multistep feedback, so that individual child algorithm progress reports are adjusted for the
-        # overall progress through the model    
-        feedback = QgsProcessingMultiStepFeedback(2, model_feedback)
+    def processAlgorithm(self, parameters, context, model_feedback):                    
+                       
+        feedback = QgsProcessingMultiStepFeedback(3, model_feedback)
         results = {}
-        outputs = {}               
-                       
+        outputs = {}
+        
         # Add Field ID
         idz_params = {
             'FIELD_LENGTH': 11,
@@ -124,19 +127,33 @@ class ReadoutAlgorithm(QgsProcessingAlgorithm):
             'FORMULA': '$id',
             'INPUT': parameters['VectorLineLayer'],
             'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT
-        }
-        outputs['AddFieldID'] = processing.run('native:fieldcalculator', idz_params, context=context, feedback=feedback, is_child_algorithm=True) #1
-        
+        }        
         feedback.setCurrentStep(1)
         if feedback.isCanceled():
             return {}
-        
+
+        outputs['AddFieldID'] = processing.run('native:fieldcalculator', idz_params, context=context, feedback=feedback, is_child_algorithm=True) #1
+        results['AddFieldID'] = outputs['AddFieldID']['OUTPUT']
+                       
         # Export Calculations and Save as CSV Files
-        alg_params = {'LAYERS': outputs['AddFieldID']['OUTPUT'], 'USE_ALIAS': False, "FORMATTED_VALUES": True, "OVERWRITE": True, 'OUTPUT': parameters['Splitty']}          
+        alg_params = {'LAYERS': results['AddFieldID'], 'USE_ALIAS': False, "FORMATTED_VALUES": True, "OVERWRITE": True, 'OUTPUT': parameters['Splitty']}
+
+        feedback.setCurrentStep(2)
+        if feedback.isCanceled():
+            return {}        
                                               
-        outputs['SplitToCSV'] = processing.run('native:exporttospreadsheet', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #2 
-                        
+        outputs['SplitToCSV'] = processing.run('native:exporttospreadsheet', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #2
         results['Splitty'] = outputs['SplitToCSV']['OUTPUT']
-        return results               
-               
-    
+        
+        # Split and Save as CSV Files
+        split_params = {'INPUT': results['AddFieldID'], 'FIELD': parameters['FGHTY'], "FILE_TYPE": 5, 'OUTPUT': parameters['Spready']}          
+                                              
+        feedback.setCurrentStep(3)
+        if feedback.isCanceled():
+            return {}        
+        
+        outputs['SplitToCSV'] = processing.run('qgis:splitvectorlayer', split_params, context=context, feedback=feedback, is_child_algorithm=True) #9
+        results['SplitToCSV'] = outputs['SplitToCSV']['OUTPUT']                  
+        
+        return results                 
+        
