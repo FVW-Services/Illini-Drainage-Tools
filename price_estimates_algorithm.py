@@ -37,6 +37,7 @@ import time
 import random
 import qgis.utils
 import numpy as np
+import pandas as pd
 
 from qgis.gui import *
 from PyQt5 import QtWidgets
@@ -65,6 +66,7 @@ from qgis.core import QgsProcessingParameterNumber
 from qgis.core import QgsProcessingParameterPoint
 from qgis.core import QgsProcessingParameterField
 from qgis.core import QgsProcessingParameterCrs
+from qgis.core import QgsProcessingParameterFile
 from qgis.core import QgsCoordinateReferenceSystem
 from qgis.core import QgsFeatureSink
 from qgis.core import QgsFeatureRequest
@@ -100,6 +102,7 @@ from qgis.core import (edit,QgsField, QgsFeature, QgsPointXY, QgsWkbTypes, QgsGe
 
 class PriceEstimatesAlgorithm(QgsProcessingAlgorithm):
     INPUT_LAYER = 'INPUT_LAYER'
+    INPUT_PRICE = 'INPUT_PRICE'
     SEGMENT_KEY = 'SIZING_ID'
     PIPE_KEY = 'NOMINAL'
     LENGTH_KEY = 'LENGTH_DIST'
@@ -136,8 +139,10 @@ class PriceEstimatesAlgorithm(QgsProcessingAlgorithm):
         Workflow: 
         1. Select a Line Layer (e.g. the "Network Pipe Sizings"). This is a follow-up from "Routine K"
         2. Select the two fields used for generating the price estimations (that is, the "NOMINAL" and "LENGTH")
-        3. Save the output files (optional)
-        4. Click on \"Run\"
+        3. Fill out the prices for the different pipe sizes, using the "prize_table" file. Copy and paste link to download: 
+           https://drive.google.com/file/d/1CJ5yFAuIZeRE1vOX1FEWkeTbSHunxtId/view?usp=sharing
+        4. Save the output files (optional)
+        5. Click on \"Run\"
         
         The script will gives out an output.         
                 
@@ -155,7 +160,9 @@ class PriceEstimatesAlgorithm(QgsProcessingAlgorithm):
                 
         self.addParameter(QgsProcessingParameterField(self.PIPE_KEY, self.tr("Pipe Sizes [NOMINAL_SIZE]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))       
         
-        self.addParameter(QgsProcessingParameterField(self.LENGTH_KEY, self.tr("Pipe Length [LENGTH]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))               
+        self.addParameter(QgsProcessingParameterField(self.LENGTH_KEY, self.tr("Pipe Length [LENGTH]"), parentLayerParameterName = self.INPUT_LAYER, type = QgsProcessingParameterField.Any, defaultValue=None))
+
+        self.addParameter(QgsProcessingParameterFile(self.INPUT_PRICE, self.tr('Insert Filled Price Table'), extension='csv', defaultValue=None))        
                        
         self.addParameter(QgsProcessingParameterVectorDestination(self.OUTPUT_LAYER, self.tr('Price Estimations for Sized Pipes [$ Per Foot Length]'), type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))       
     
@@ -175,34 +182,29 @@ class PriceEstimatesAlgorithm(QgsProcessingAlgorithm):
         '''names of fields from Tile Network'''      
         size_field = self.parameterAsString(parameters, self.PIPE_KEY, context)
         length_field = self.parameterAsString(parameters, self.LENGTH_KEY, context)
+        price_table = self.parameterAsString(parameters, self.INPUT_PRICE, context)
+        prices_df = pd.read_csv(price_table)
                
         '''field index for id,next segment, previous segment'''        
         p_size_index = rawz_layer.fields().indexFromName(size_field)
         length_index = rawz_layer.fields().indexFromName(length_field)
         
-        # Pipe Sizes
-        size_pipe = [4, 5, 6, 8, 10, 12, 15, 18, 21, 24, 30, 36, 42]
-        # Pipe Types with Prices
-        single_wall_price = [2, 3, 4, 5, 8, 10, 20, 30, 40, 50, 80, 100, 150]
-        smooth_wall_price = [3, 4, 5, 7, 10, 13, 20, 30, 45, 60, 90, 150, 250]
-        clay_wall_price = [12, 15, 18, 25, 30, 40, 55, 80, 110, 140, 250, 450, 600]
-        concrete_wall_price = [15, 20, 25, 40, 50, 70, 100, 150, 200, 250, 400, 600, 800]       
+        # Define pipe sizes and associated price tables
+        size_pipe = list(prices_df['PipeSize'])
+        single_wall_price = list(prices_df['SingleWall'])
+        smooth_wall_price = list(prices_df['SmoothWall'])
+        clay_wall_price = list(prices_df['Clay'])
+        concrete_wall_price = list(prices_df['Concrete'])
         
         #define new fields for the output layer       
         out_fields = QgsFields()                
         out_fields.append(QgsField('N_SIZES', QVariant.Int))
         out_fields.append(QgsField('FREQUENCY', QVariant.Int))
         out_fields.append(QgsField('TOTAL_FEET', QVariant.Double))
-        out_fields.append(QgsField('SING_EST', QVariant.Double))
-        out_fields.append(QgsField('SING_POSB', QVariant.Double))
-        out_fields.append(QgsField('SMOT_EST', QVariant.Double))
-        out_fields.append(QgsField('SMOT_POSB', QVariant.Double))
-        out_fields.append(QgsField('CLAY_EST', QVariant.Double))
-        out_fields.append(QgsField('CLAY_POSB', QVariant.Double))
-        out_fields.append(QgsField('CONC_EST', QVariant.Double))
-        out_fields.append(QgsField('CONC_POSB', QVariant.Double))
-               
-        # (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT_LAYER, context, out_fields, rawz_layer.wkbType(), rawz_layer.sourceCrs())
+        out_fields.append(QgsField('SINGLE_W[$]', QVariant.Double))    
+        out_fields.append(QgsField('SMOOTH_W[$]', QVariant.Double))    
+        out_fields.append(QgsField('CLAY_W[$]', QVariant.Double))    
+        out_fields.append(QgsField('CONCRETE_W[$]', QVariant.Double))                                      
        
         '''load data from layer "raw_layer" '''
         feedback.setProgressText(self.tr("Loading Price Estimations\n "))
@@ -211,15 +213,11 @@ class PriceEstimatesAlgorithm(QgsProcessingAlgorithm):
         n_sizes = []
         n_freq = []
         total_length = []
-        est_sing = []
-        posb_sing = []
-        est_smt = []
-        posb_smt = []
-        est_clay = []
-        posb_clay = []
-        est_conc = []
-        posb_conc = []
-        
+        sing_wall = []
+        smot_wall = []    
+        clay_wall = []    
+        conc_wall = []
+            
         # Loop through features and group by pipe size
         groups = {}
         for feature in rawz_layer.getFeatures():          
@@ -238,15 +236,10 @@ class PriceEstimatesAlgorithm(QgsProcessingAlgorithm):
             n_sizes.append(size)
             n_freq.append(groups[size]['freq'])
             total_length.append(groups[size]['length'])
-            est_sing.append(groups[size]['length'] * single_wall_price[size_pipe.index(size)])
-            posb_sing.append(est_sing[-1] * 0.9)
-            est_smt.append(groups[size]['length'] * smooth_wall_price[size_pipe.index(size)])
-            posb_smt.append(est_smt[-1] * 0.9)
-            est_clay.append(groups[size]['length'] * clay_wall_price[size_pipe.index(size)])
-            posb_clay.append(est_clay[-1] * 0.9)
-            est_conc.append(groups[size]['length'] * concrete_wall_price[size_pipe.index(size)])
-            posb_conc.append(est_conc[-1] * 0.9)
-                 
+            sing_wall.append(groups[size]['length'] * single_wall_price[size_pipe.index(size)])            
+            smot_wall.append(groups[size]['length'] * smooth_wall_price[size_pipe.index(size)])            
+            clay_wall.append(groups[size]['length'] * clay_wall_price[size_pipe.index(size)])            
+            conc_wall.append(groups[size]['length'] * concrete_wall_price[size_pipe.index(size)])                           
                 
         # Use random colors to create categorized symbol for each group/category
         color_list = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#00FFFF', '#FF00FF', '#800000', '#008000', '#000080', '#808000', '#008080', '#800080', '#C0C0C0']
@@ -282,14 +275,10 @@ class PriceEstimatesAlgorithm(QgsProcessingAlgorithm):
                 n_sizes[i],
                 n_freq[i],
                 total_length[i],
-                est_sing[i],
-                posb_sing[i],
-                est_smt[i],
-                posb_smt[i],
-                est_clay[i],
-                posb_clay[i],
-                est_conc[i],
-                posb_conc[i]
+                sing_wall[i],            
+                smot_wall[i],
+                clay_wall[i],            
+                conc_wall[i]                
             ])
             
             # Add the feature to the layer

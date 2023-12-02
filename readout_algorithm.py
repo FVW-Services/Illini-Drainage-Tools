@@ -108,9 +108,9 @@ class ReadoutAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterVectorLayer('VectorLineLayer', 'Input Vector Layer with Unique Line ID', types=[QgsProcessing.TypeVectorAnyGeometry], defaultValue=None))
         self.addParameter(QgsProcessingParameterField('FGHTY', 'Unique Field ID', parentLayerParameterName = 'VectorLineLayer', type = QgsProcessingParameterField.Any,))
         
-        self.addParameter(QgsProcessingParameterFileDestination('Splitty', 'Tile Spreadsheet ReadOut: FileName Should Be Specified', createByDefault=True, defaultValue=None, fileFilter='CSV files (*.csv);;Text files (*.txt)'))
+        self.addParameter(QgsProcessingParameterFileDestination('Splitty', 'Tile Spreadsheet ReadOut: Export as an Individual File', createByDefault=True, defaultValue=None, fileFilter='CSV files (*.csv);;Text files (*.txt)'))
 
-        self.addParameter(QgsProcessingParameterFolderDestination('Spready', 'Network Spreadsheet', createByDefault=True, defaultValue=None))
+        self.addParameter(QgsProcessingParameterFolderDestination('Spready', 'Tile Network Spreadsheet ReadOut: Export into a Folder', createByDefault=True, defaultValue=None))
                        
     def processAlgorithm(self, parameters, context, model_feedback):                    
                        

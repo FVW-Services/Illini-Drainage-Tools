@@ -144,7 +144,7 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         # Use a multi-step feedback, so that individual child algorithm progress reports are adjusted for the
         # overall progress through the model
         
-        feedback = QgsProcessingMultiStepFeedback(15, model_feedback)
+        feedback = QgsProcessingMultiStepFeedback(12, model_feedback)
         results = {}
         outputs = {}                   
                                   
@@ -170,29 +170,19 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         
         # Find Channel Network from Terrain Analysis (unfilled DEM)
         alg_params = {'ELEVATION': results['ClipRasterbyMaskLayer'], 'INIT_GRID': outputs['ClipRasterbyMaskLayer']['OUTPUT'], 'INIT_METHOD': 2, 'INIT_VALUE': 0, 'DIV_CELLS': 10, 'MINLEN': 10,
-                                    'CHNLNTWRK': QgsProcessing.TEMPORARY_OUTPUT, 'CHNLROUTE': QgsProcessing.TEMPORARY_OUTPUT, 'SHAPES': QgsProcessing.TEMPORARY_OUTPUT}
+                                    'CHNLNTWRK': QgsProcessing.TEMPORARY_OUTPUT, 'CHNLROUTE': QgsProcessing.TEMPORARY_OUTPUT, 'SHAPES': parameters['UnfilledDEM']}
                 
         feedback.setCurrentStep(3)
         if feedback.isCanceled():
             return {}
             
-        outputs['ChannelNetworkz'] = processing.run('saga:channelnetwork', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #3
-        results['ChannelNetworkz'] = outputs['ChannelNetworkz']['SHAPES']
+        outputs['ChannelNetwork'] = processing.run('saga:channelnetwork', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #3
+        results['ChannelNetwork'] = outputs['ChannelNetwork']['SHAPES']
     
-        # Clip Field Laylines               
-        alg_params = {'INPUT': results['ChannelNetworkz'], 'MASK': parameters['VectorPolygonLayer'], 'OUTPUT': parameters['UnfilledDEM']}
-        
-        feedback.setCurrentStep(4)
-        if feedback.isCanceled():
-            return {} 
-            
-        outputs['ChannelNetwork'] = processing.run('gdal:clipvectorbypolygon', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #4
-        results['ChannelNetwork'] = outputs['ChannelNetwork']['OUTPUT'] 
-        
         # Define Current Projection
         alg_params = {'INPUT': results['ChannelNetwork'], 'CRS': parameters['CRSZ']}
                 
-        feedback.setCurrentStep(5)
+        feedback.setCurrentStep(4)
         if feedback.isCanceled():
             return {}
             
@@ -202,7 +192,7 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         # Fill DEM Sinks               
         alg_params = {'DEM': results['ClipRasterbyMaskLayer'], 'MINSLOPE': 0.03, 'RESULT': QgsProcessing.TEMPORARY_OUTPUT}
         
-        feedback.setCurrentStep(6)
+        feedback.setCurrentStep(5)
         if feedback.isCanceled():
             return {} 
         
@@ -210,84 +200,64 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         results['FillSinks'] = outputs['FillSinks']['RESULT']      
                                                               
         # Find Field Contour               
-        alg_params = {'INPUT': results['FillSinks'], 'BAND': 1, 'INTERVAL': parameters['ContourInterval'], 'FIELD_NAME': 'ELEV', 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}
+        alg_params = {'INPUT': results['FillSinks'], 'BAND': 1, 'INTERVAL': parameters['ContourInterval'], 'FIELD_NAME': 'ELEV', 'OUTPUT': parameters['FilledContour']}
         
-        feedback.setCurrentStep(7)
+        feedback.setCurrentStep(6)
         if feedback.isCanceled():
             return {} 
             
-        outputs['Contoky'] = processing.run('gdal:contour', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #6
-        results['Contoky'] = outputs['Contoky']['OUTPUT']                             
-                                             
+        outputs['Contour'] = processing.run('gdal:contour', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #6
+        results['Contour'] = outputs['Contour']['OUTPUT']                             
+                                     
         # Define Current Projection
-        alg_params = {'INPUT': results['Contoky'], 'CRS': parameters['CRSZ']}
+        alg_params = {'INPUT': results['Contour'], 'CRS': parameters['CRSZ']}
                 
-        feedback.setCurrentStep(8)
+        feedback.setCurrentStep(7)
         if feedback.isCanceled():
             return {}
             
         outputs['Contour_A'] = processing.run('qgis:definecurrentprojection', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #7
         results['Contour_A'] = outputs['Contour_A']['INPUT']
-                
-        # Clip Field Contour               
-        alg_params = {'INPUT': results['Contour_A'], 'OVERLAY': parameters['VectorPolygonLayer'], 'OUTPUT': parameters['FilledContour']} #QgsProcessing.TEMPORARY_OUTPUT
-        
-        feedback.setCurrentStep(9)
-        if feedback.isCanceled():
-            return {} 
-            
-        outputs['Contour'] = processing.run('qgis:clip', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #8
-        results['Contour'] = outputs['Contour']['OUTPUT']   
         
         # Find Channel Network from Terrain Analysis (filled DEM)
         alg_params = {'ELEVATION': outputs['FillSinks']['RESULT'], 'INIT_GRID': outputs['FillSinks']['RESULT'], 'INIT_METHOD': 2, 'INIT_VALUE': 0, 'DIV_CELLS': 10, 'MINLEN': 10,
-                                    'CHNLNTWRK': QgsProcessing.TEMPORARY_OUTPUT, 'CHNLROUTE': QgsProcessing.TEMPORARY_OUTPUT, 'SHAPES': QgsProcessing.TEMPORARY_OUTPUT}
+                                    'CHNLNTWRK': QgsProcessing.TEMPORARY_OUTPUT, 'CHNLROUTE': QgsProcessing.TEMPORARY_OUTPUT, 'SHAPES': parameters['FilledDEM']}
                 
-        feedback.setCurrentStep(10)
+        feedback.setCurrentStep(8)
         if feedback.isCanceled():
             return {}
         
-        outputs['ChannelNetworkys'] = processing.run('saga:channelnetwork', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #9
-        results['ChannelNetworkys'] = outputs['ChannelNetworkys']['SHAPES']                
-        
-        # Clip Field Laylines               
-        alg_params = {'INPUT': results['ChannelNetworkys'], 'MASK': parameters['VectorPolygonLayer'], 'OUTPUT': parameters['FilledDEM']}
-        
-        feedback.setCurrentStep(11)
-        if feedback.isCanceled():
-            return {} 
-            
-        outputs['ChannelNetwork2'] = processing.run('gdal:clipvectorbypolygon', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #10
-        results['ChannelNetwork2'] = outputs['ChannelNetwork2']['OUTPUT'] 
+        outputs['ChannelNetwork2'] = processing.run('saga:channelnetwork', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #8
+        results['ChannelNetwork2'] = outputs['ChannelNetwork2']['SHAPES']
                 
         # Define Current Projection
         alg_params = {'INPUT': results['ChannelNetwork2'], 'CRS': parameters['CRSZ']}
                 
-        feedback.setCurrentStep(12)
+        feedback.setCurrentStep(9)
         if feedback.isCanceled():
             return {}
             
-        outputs['ChannelNetwork_B'] = processing.run('qgis:definecurrentprojection', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #11
+        outputs['ChannelNetwork_B'] = processing.run('qgis:definecurrentprojection', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #9
         results['ChannelNetwork_B'] = outputs['ChannelNetwork_B']['INPUT']
         
         # Clip Original Raster DEM Layer Out  
         alg_params = {'INPUT': parameters['HGF'], 'MASK': results['VectorBuffer'], 'CROP_TO_CUTLINE': True, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT} 
                               
-        feedback.setCurrentStep(13)
+        feedback.setCurrentStep(10)
         if feedback.isCanceled():
             return {}
             
-        outputs['ClipLayer'] = processing.run('gdal:cliprasterbymasklayer', alg_params, context=context, feedback=feedback, is_child_algorithm=True)#12     
+        outputs['ClipLayer'] = processing.run('gdal:cliprasterbymasklayer', alg_params, context=context, feedback=feedback, is_child_algorithm=True)#10     
         results['ClipLayer'] = outputs['ClipLayer']['OUTPUT']
         
         # Fill DEM Sinks               
         alg_params = {'DEM': results['ClipLayer'], 'MINSLOPE': 0.03, 'RESULT': QgsProcessing.TEMPORARY_OUTPUT}
         
-        feedback.setCurrentStep(14)
+        feedback.setCurrentStep(11)
         if feedback.isCanceled():
             return {} 
         
-        outputs['FillSinkz'] = processing.run('saga:fillsinksplanchondarboux2001', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #13        
+        outputs['FillSinkz'] = processing.run('saga:fillsinksplanchondarboux2001', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #11        
         results['FillSinkz'] = outputs['FillSinkz']['RESULT'] 
         
         ## Raster Calculator
@@ -304,11 +274,11 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         'OUTPUT': parameters['DeRaster']
         }       
         
-        feedback.setCurrentStep(15)
+        feedback.setCurrentStep(12)
         if feedback.isCanceled():
             return {}
         
-        outputs['RasterCalculator'] = processing.run('gdal:rastercalculator', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #14
+        outputs['RasterCalculator'] = processing.run('gdal:rastercalculator', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #12
         results['RasterCalculator'] = outputs['RasterCalculator']['OUTPUT']
         
         if context.willLoadLayerOnCompletion(results['Contour']):

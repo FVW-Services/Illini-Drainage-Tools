@@ -220,22 +220,6 @@ class NetworkFlowOrderingAlgorithm(QgsProcessingAlgorithm):
                     twice = common+1
                     result = max(once,twice) 
                            
-            elif len(ab_map[n]) == 4:  # Handling four dependencies
-                a, b, c, d = ab_map[n]  # get four elements respectively
-                a = calculate_order(a)
-                b = calculate_order(b)
-                c = calculate_order(c)
-                d = calculate_order(d)
-                
-                if a == b == c == d:
-                    result = max(a, b, c, d) + 1
-                elif a == b == c and d != a:
-                    result = max(a, b, c, d) + 1
-                elif (a == b and c == d) or (a == c and b == d) or (a == d and b == c):
-                    result = max(a, b, c, d) + 1
-                else:
-                    result = max(a, b, c, d)
-                                               
             else:
                 raise ValueError("Unreachable code")
             order_results[n] = result
