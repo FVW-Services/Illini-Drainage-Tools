@@ -176,7 +176,7 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         if feedback.isCanceled():
             return {}
             
-        outputs['ChannelNetworkz'] = processing.run('sagang:channelnetwork', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #3
+        outputs['ChannelNetworkz'] = processing.run('saga:channelnetwork', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #3
         results['ChannelNetworkz'] = outputs['ChannelNetworkz']['SHAPES']
     
         # Clip Field Laylines               
@@ -206,7 +206,7 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         if feedback.isCanceled():
             return {} 
         
-        outputs['FillSinks'] = processing.run('sagang:fillsinksplanchondarboux2001', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #5        
+        outputs['FillSinks'] = processing.run('saga:fillsinksplanchondarboux2001', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #5        
         results['FillSinks'] = outputs['FillSinks']['RESULT']      
                                                               
         # Find Field Contour               
@@ -247,7 +247,7 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         if feedback.isCanceled():
             return {}
         
-        outputs['ChannelNetworkys'] = processing.run('sagang:channelnetwork', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #9
+        outputs['ChannelNetworkys'] = processing.run('saga:channelnetwork', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #9
         results['ChannelNetworkys'] = outputs['ChannelNetworkys']['SHAPES']                
         
         # Clip Field Laylines               
@@ -287,7 +287,7 @@ class PlottingFieldLaylinesAlgorithm(QgsProcessingAlgorithm):
         if feedback.isCanceled():
             return {} 
         
-        outputs['FillSinkz'] = processing.run('sagang:fillsinksplanchondarboux2001', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #13        
+        outputs['FillSinkz'] = processing.run('saga:fillsinksplanchondarboux2001', alg_params, context=context, feedback=feedback, is_child_algorithm=True) #13        
         results['FillSinkz'] = outputs['FillSinkz']['RESULT'] 
         
         ## Raster Calculator

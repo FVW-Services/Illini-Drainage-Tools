@@ -117,14 +117,14 @@ class LidarThinningAnalysisAlgorithm(QgsProcessingAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
                                        
         # Clip Raster DEM Layer Out        
-        clip_params = processing.run('sagang:cliprasterwithpolygon',
+        clip_params = processing.run('saga:cliprasterwithpolygon',
         {'INPUT': parameters['IDT'], 'POLYGONS': parameters['VectorBound'], 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT}, 
         context=context, feedback=feedback, is_child_algorithm=True) #1
         
         results_a = clip_params['OUTPUT']
                            
         # Resample Clipped Raster DEM      
-        resam_params = processing.run('sagang:resampling',
+        resam_params = processing.run('saga:resampling',
         {'INPUT': results_a, 'SCALE_UP': 0, 'SCALE_DOWN': 0, 'TARGET_USER_SIZE': parameters['PixelSize'], 'TARGET_USER_FITS': 1, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT},
         context=context, feedback=feedback, is_child_algorithm=True) #2                     
         

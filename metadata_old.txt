@@ -11,11 +11,11 @@
 name=Illini Drainage Tools
 qgisMinimumVersion=3.0
 description=Performs Specific Draiange Related Tasks and Analysis on a Site using a LiDAR DEM data.
-version=3.3
-author= Anamelechi FALASY & Richard COOKE
+version=3.2
+author=FALASY Anamelechi
 email=fvw.services@gmail.com
 
-about=Performs Specific Draiange Related Tasks and Analysis on a Site using a LiDAR DEM data.(Note: This Plugin functions better if the SAGA library is enabled. Install "Processing Saga NextGen Provider" Plugin). 
+about=Performs Specific Draiange Related Tasks and Analysis on a Site using a LiDAR DEM data.
 
 tracker=https://github.com/FVW-Services/Illini-Drainage-Tools/issues
 repository=https://github.com/FVW-Services/Illini-Drainage-Tools
@@ -24,7 +24,7 @@ repository=https://github.com/FVW-Services/Illini-Drainage-Tools
 # Recommended items:
 
 # Uncomment the following line and add your changelog:
-changelog= Solved bug related to the updated versions of QGIS.
+# changelog=
 
 # Tags are comma separated with spaces allowed
 tags=python, LiDAR Thinning, Point Sampling, Layout Grids, Tile Network Generator, Node Generator, Network Connectivity, Elevation Endpoints

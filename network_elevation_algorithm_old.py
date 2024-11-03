@@ -164,7 +164,7 @@ class NetworkElevationAlgorithm(QgsProcessingAlgorithm):
         results_c = elev_params['OUTPUT']
                 
         # Calculates True Length
-        line_params = processing.run('sagang:lineproperties', 
+        line_params = processing.run('saga:lineproperties', 
         {'LINES': results_c, 'BPARTS': False, 'BPOINT': False, 'BLENGTH': True, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT},
         context=context, feedback=feedback, is_child_algorithm=True) #4
 
@@ -216,14 +216,14 @@ class NetworkElevationAlgorithm(QgsProcessingAlgorithm):
         results_j = endpoint_params['OUTPUT']
         
         # Add Raster Values to Points
-        elevation_params = processing.run('sagang:addrastervaluestopoints', 
+        elevation_params = processing.run('saga:addrastervaluestopoints', 
         {'SHAPES': results_j, 'GRIDS': parameters['MDFT'], 'RESAMPLING': 0, 'RESULT': parameters['EndpointElevations']},
         context=context, feedback=feedback, is_child_algorithm=True) #11
         
         results_k = elevation_params['RESULT']
         
         # Line Terrain Profiles
-        terrain_params = processing.run('sagang:profilesfromlines',
+        terrain_params = processing.run('saga:profilesfromlines',
         {'DEM': parameters['MDFT'], 'LINES': results_f, 'NAME': parameters['FGHTY'], 'PROFILE': QgsProcessing.TEMPORARY_OUTPUT, 'PROFILES': QgsProcessing.TEMPORARY_OUTPUT},
         context=context, feedback=feedback, is_child_algorithm=True) #12
        

@@ -1,7 +1,7 @@
 #/***************************************************************************
 # IlliniDrainageTools
 #
-# Performs Specific Draiange Related Tasks and Analysis on a Site
+# Performs Specific Drainage Related Tasks and Analysis on a Site
 #							 -------------------
 #		begin				: 2022-03-15
 #		git sha				: $Format:%H$

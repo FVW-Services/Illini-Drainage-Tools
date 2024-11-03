@@ -22,9 +22,9 @@
  This script initializes the plugin, making it known to QGIS.
 """
 
-__author__ = 'FALASY  Anamelechi'
+__author__ = 'Anamelechi FALASY & Richard COOKE'
 __date__ = '2022-03-15'
-__copyright__ = '(C) 2022 by FALASY  Anamelechi'
+__copyright__ = '(C) 2022 by Anamelechi FALASY & Richard COOKE'
 
 
 # noinspection PyPep8Naming
