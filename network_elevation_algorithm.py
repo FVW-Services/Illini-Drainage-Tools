@@ -153,7 +153,7 @@ class NetworkElevationAlgorithm(QgsProcessingAlgorithm):
         drape_params = processing.run('native:setzfromraster', 
         {'BAND': 1, 'INPUT': results_a, 'NODATA': -9999, 'RASTER': parameters['MDFT'], 'SCALE': 1, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT},
         context=context, feedback=feedback, is_child_algorithm=True) #2
-
+                
         results_b = drape_params['OUTPUT']
                 
         # Extract Z values
@@ -161,14 +161,15 @@ class NetworkElevationAlgorithm(QgsProcessingAlgorithm):
         {'COLUMN_PREFIX': 'Elev_', 'INPUT': results_b, 'SUMMARIES': [0,1], 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT},
         context=context, feedback=feedback, is_child_algorithm=True) #3
 
-        results_c = elev_params['OUTPUT']
-                
-        # Calculates True Length
-        line_params = processing.run('sagang:lineproperties', 
-        {'LINES': results_c, 'BPARTS': False, 'BPOINT': False, 'BLENGTH': True, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT},
+        results_c = elev_params['OUTPUT']                        
+        
+        # Field calculator1: Calculates True Length
+        calcul_params = processing.run('native:fieldcalculator',
+        {'FIELD_LENGTH': 18, 'FIELD_NAME': 'LENGTH', 'FIELD_PRECISION': 3, 'FIELD_TYPE': 0, 'FORMULA': '$length', 
+        'INPUT': results_c, 'OUTPUT': QgsProcessing.TEMPORARY_OUTPUT},
         context=context, feedback=feedback, is_child_algorithm=True) #4
 
-        results_d = line_params['OUTPUT']
+        results_d = calcul_params['OUTPUT']
         
         # Field calculator2
         calcu_params = processing.run('native:fieldcalculator',

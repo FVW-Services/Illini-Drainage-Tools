@@ -124,8 +124,8 @@ class BenefitsAlgorithm(QgsProcessingAlgorithm):
                 
         The script will give out an output. 
         
-        \"Drainage Intensity [DI]\" -- The rate at which an outlet system can remove water from a field. This is the Hydraulic capacity of the drainage system. 
-        \"Drainage Coefficient [DC]\" -- The rate at which water can move from the soil through the drain pipes. 
+        \"Drainage Coefficient [DC]\" -- The rate at which an outlet system can remove water from a field. This is the Hydraulic capacity of the drainage system. 
+        \"Drainage Intensity [DI]\" -- The rate at which water can move from the soil through the drain pipes. 
         
         \"Inslope\" -- This is the burying slope calculated inside the loop before the elevation buried depths are determined.
         \"Outslope\" -- This is the burying slope calculated outside the loop after the elevation buried depths are determined.        
